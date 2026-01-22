@@ -1,0 +1,472 @@
+import streamlit as st
+import os
+import io
+import base64
+import time
+from io import BytesIO
+from pdf_processor import process_pdfs_to_paragraphs
+from document_generator import generate_docx
+from PIL import Image
+from streamlit_sortables import sort_items
+from streamlit_pdf_viewer import pdf_viewer
+
+
+# Налаштування сторінки
+# Налаштування сторінки
+# st.set_page_config(
+#     page_title="Генератор досьє з PDF",
+#     page_icon="📄",
+#     layout="wide"
+# )
+
+# Стилі CSS для покращення інтерфейсу
+st.markdown("""
+    <style>
+    .main {
+        padding: 2rem;
+    }
+    .stButton>button {
+        width: 100%;
+        background-color: #0051a8;
+        color: white;
+        font-weight: bold;
+        padding: 0.5rem 1rem;
+        border-radius: 5px;
+        border: none;
+        transition: background-color 0.3s;
+    }
+    .stButton>button:hover {
+        background-color: #003d7a;
+    }
+    .upload-section {
+        background-color: #f0f2f6;
+        padding: 1.5rem;
+        border-radius: 10px;
+        margin-bottom: 1rem;
+    }
+    h1 {
+        color: #0051a8;
+        font-weight: bold;
+    }
+    h2 {
+        color: #003d7a;
+        margin-top: 2rem;
+    }
+    h3 {
+        color: #0051a8;
+        margin-top: 1rem;
+    }
+    .success-box {
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+        padding: 1rem;
+        border-radius: 5px;
+        margin: 1rem 0;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+
+def cleanup_temp_photos(exclude_path=None):
+    """Видаляє всі тимчасові фото, крім поточного активного."""
+    for f in os.listdir("."):
+        if f.startswith("temp_photo_") and f.endswith(".png"):
+            try:
+                full_path = os.path.abspath(f)
+                if exclude_path and os.path.abspath(exclude_path) == full_path:
+                    continue
+                os.remove(f)
+            except:
+                pass
+
+
+def main():
+    # 0. Очищення старих фото при кожному запуску (крім поточного)
+    cleanup_temp_photos(exclude_path=st.session_state.get('photo_path'))
+
+    # Заголовок
+    st.title("📄 Генератор особистого досьє з PDF")
+    st.markdown("---")
+    
+    # Основна область
+    # Секція завантаження файлів
+    st.header("1️⃣ Завантаження PDF файлів")
+    
+    uploaded_files = st.file_uploader(
+        "Виберіть PDF файли для обробки",
+        type=['pdf'],
+        accept_multiple_files=True,
+        help="Можна завантажити кілька файлів одночасно"
+    )
+    
+    if uploaded_files:
+        st.success(f"✅ Завантажено файлів: {len(uploaded_files)}")
+        
+        # Показуємо список завантажених файлів
+        with st.expander("📋 Список завантажених файлів"):
+            for i, file in enumerate(uploaded_files, 1):
+                st.write(f"{i}. {file.name} ({file.size / 1024:.2f} KB)")
+        
+        # Кнопка обробки
+        if st.button("🔄 Обробити PDF файли", type="primary"):
+            with st.spinner("Обробка PDF файлів..."):
+                all_paragraphs = process_pdfs_to_paragraphs(uploaded_files)
+                
+                # Зберігаємо в session_state
+                st.session_state['all_paragraphs'] = all_paragraphs
+                st.session_state['processing_done'] = True
+                # Скидаємо вибір при новій обробці
+                if 'selections' in st.session_state:
+                    del st.session_state['selections']
+                
+                st.success("✅ Обробка завершена!")
+    
+    # Секция 2: Выбор и Секция 3: Фото
+    if 'processing_done' in st.session_state and st.session_state['processing_done']:
+        st.markdown("---")
+        st.header("2️⃣ Выбор информации из файлов")
+        
+        all_paragraphs_dict = st.session_state['all_paragraphs']
+        
+        if 'selections' not in st.session_state:
+            st.session_state['selections'] = {}
+            
+        selected_content = []
+
+        # --- Разделенный экран: Текст (слева) и PDF (справа) ---
+        file_names = list(all_paragraphs_dict.keys())
+        active_file = file_names[0]
+        if len(file_names) > 1:
+            active_file = st.radio("📂 Выберите файл для просмотра:", file_names, horizontal=True)
+
+        paragraphs = all_paragraphs_dict[active_file]
+        # Динамічний розрахунок висоти: приблизно 115 пікселів на блок + заголовок
+        pdf_height = max(800, len(paragraphs) * 115 + 100)
+
+        col_left, col_right = st.columns([1, 1])
+
+        with col_left:
+            st.markdown("#### 📝 Выбор блоков")
+            
+            if active_file not in st.session_state['selections']:
+                st.session_state['selections'][active_file] = [True] * len(paragraphs)
+            
+            # Кнопки управления
+            c1, c2 = st.columns(2)
+            if c1.button("✅ Выбрать все", key=f"all_{active_file}"):
+                st.session_state['selections'][active_file] = [True] * len(paragraphs)
+                st.rerun()
+            if c2.button("❌ Снять все", key=f"none_{active_file}"):
+                st.session_state['selections'][active_file] = [False] * len(paragraphs)
+                st.rerun()
+
+            with st.container():
+                for i, block in enumerate(paragraphs):
+                    header = block.get("header", "")
+                    content = block.get("content", "")
+                    key = f"cb_{active_file}_{i}"
+                    
+                    display_header = f"**{header}**" if header else f"Блок {i+1}"
+                    is_selected = st.checkbox(display_header, value=st.session_state['selections'][active_file][i], key=key)
+                    
+                    if content:
+                        st.caption(content)
+                    
+                    st.session_state['selections'][active_file][i] = is_selected
+
+        with col_right:
+            st.markdown("#### 📑 Оригинальный PDF")
+            # Находим объект файла
+            file_obj = next((f for f in uploaded_files if f.name == active_file), None)
+            if file_obj:
+                file_obj.seek(0)
+                # Використання спеціалізованої бібліотеки для Streamlit Cloud
+                pdf_viewer(file_obj.read(), height=pdf_height)
+
+        # Собираем выбранное
+        for fname, f_paras in all_paragraphs_dict.items():
+            if fname in st.session_state['selections']:
+                for i, sel in enumerate(st.session_state['selections'][fname]):
+                    if sel:
+                        block = f_paras[i].copy()
+                        block['filename'] = fname
+                        block['idx'] = i
+                        selected_content.append(block)
+    else:
+        selected_content = []
+
+    # ПЕРЕНЕСЕНО СЮДИ: Секція завантаження фото (завжди доступна після вибору файлів або відразу)
+    st.markdown("---")
+    st.header("3️⃣ Налаштування фото")
+    
+    col1, col2 = st.columns([1, 1])
+    
+    with col1:
+        if 'last_processed_paste' not in st.session_state:
+            st.session_state['last_processed_paste'] = ""
+            
+        uploaded_photo = st.file_uploader(
+            "Завантажте фото або скопіюйте картинку (Ctrl+V)",
+            type=['png', 'jpg', 'jpeg'],
+            key="photo_uploader"
+        )
+        
+        paste_placeholder = "ОЧІКУВАННЯ_ВСТАВКИ_ЗОБРАЖЕННЯ"
+        
+        # Ховаємо поле Брідж через CSS
+        st.markdown(f"""
+            <style>
+                div[data-testid="stTextArea"]:has(textarea[placeholder="{paste_placeholder}"]) {{
+                    height: 0px !important;
+                    min-height: 0px !important;
+                    overflow: hidden !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    opacity: 0;
+                }}
+            </style>
+        """, unsafe_allow_html=True)
+
+        paste_result = st.text_area(
+            "Bridge",
+            key="clipboard_data",
+            height=1,
+            placeholder=paste_placeholder,
+            label_visibility="collapsed"
+        )
+        
+        # 1. ОБРОБКА ВСТАВКИ (якщо дані нові)
+        if paste_result and paste_result != st.session_state['last_processed_paste']:
+            try:
+                img_data = paste_result.split(",")[1]
+                img_bytes = base64.b64decode(img_data)
+                img = Image.open(BytesIO(img_bytes))
+                
+                new_path = f"temp_photo_{int(time.time())}.png"
+                img.save(new_path)
+                
+                # Видаляємо старий тимчасовий файл
+                old_path = st.session_state.get('photo_path')
+                if old_path and os.path.exists(old_path) and "temp_photo_" in old_path:
+                    try: os.remove(old_path)
+                    except: pass
+                
+                st.session_state['photo_path'] = new_path
+                st.session_state['last_processed_paste'] = paste_result
+                st.rerun()
+            except Exception as e:
+                st.error(f"Помилка вставки: {e}")
+
+        # 2. ОБРОБКА ЗАВАНТАЖЕННЯ (якщо файл вибрано)
+        if uploaded_photo:
+            # Створюємо хеш або використовуємо ім'я для перевірки змін
+            file_id = f"{uploaded_photo.name}_{uploaded_photo.size}"
+            if st.session_state.get('last_uploaded_id') != file_id:
+                img = Image.open(uploaded_photo)
+                new_path = f"temp_photo_{int(time.time())}.png"
+                img.save(new_path)
+                
+                st.session_state['photo_path'] = new_path
+                st.session_state['last_uploaded_id'] = file_id
+                st.rerun()
+        
+        import streamlit.components.v1 as components
+        
+        components.html(f"""
+            <div id="p-zone" contenteditable="true" 
+                 style="border: 4px dashed #0051a8; padding: 40px; border-radius: 15px; text-align: center; background-color: #f8faff; cursor: pointer; height: 120px; outline: none; transition: all 0.3s;"
+                 onclick="this.focus(); document.getElementById('s-msg').innerText='⚡ ГОТОВИЙ ДО ВСТАВКИ (Ctrl+V)';"
+                 onblur="document.getElementById('s-msg').innerText='КЛАТЦНІТЬ СЮДИ ТА ТИСНІТЬ Ctrl+V';">
+                <span style="font-size: 40px;">📸</span><br>
+                <b id="s-msg" style="font-size: 18px; color: #0051a8; font-family: sans-serif;">КЛАТЦНІТЬ СЮДИ ТА ТИСНІТЬ Ctrl+V</b><br>
+                <span style="color: #666; font-family: sans-serif; font-size: 14px;">щоб вставити картинку</span>
+            </div>
+
+            <script>
+            const zone = document.getElementById('p-zone');
+            const msg = document.getElementById('s-msg');
+
+            zone.addEventListener('paste', (e) => {{
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+                let found = false;
+
+                for (let i = 0; i < items.length; i++) {{
+                    if (items[i].type.indexOf('image') !== -1) {{
+                        found = true;
+                        msg.innerText = "⏳ ОБРОБКА...";
+                        zone.style.backgroundColor = "#fff9c4";
+
+                        const blob = items[i].getAsFile();
+                        const reader = new FileReader();
+                        reader.onload = (event) => {{
+                            try {{
+                                const root = window.parent.document;
+                                const ta = root.querySelector('textarea[placeholder="{paste_placeholder}"]');
+                                
+                                if (ta) {{
+                                    // ТРЮК ДЛЯ REACT: використовуємо Native Value Setter
+                                    // Також додаємо примусове перемикання фокусу для синхронізації
+                                    ta.focus();
+                                    const nativeValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
+                                    nativeValueSetter.call(ta, event.target.result);
+                                    
+                                    // Події для Streamlit
+                                    ta.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                                    ta.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                                    
+                                    // Перекидаємо фокус на будь-яку кнопку, щоб викликати blur на textarea
+                                    const btn = root.querySelector('button');
+                                    if (btn) btn.focus();
+                                    ta.blur();
+                                    
+                                    msg.innerText = "✅ ГОТОВО! ОНОВЛЕННЯ...";
+                                    zone.style.backgroundColor = "#d4edda";
+                                }} else {{
+                                    msg.innerText = "❌ Помилка зв'язку";
+                                    zone.style.backgroundColor = "#ffebee";
+                                }}
+                            }} catch (err) {{
+                                msg.innerText = "❌ Помилка доступу";
+                                zone.style.backgroundColor = "#ffebee";
+                            }}
+                        }};
+                        reader.readAsDataURL(blob);
+                        break;
+                    }}
+                }}
+                
+                if (!found) {{
+                    msg.innerText = "🤔 В БУФЕРІ НЕМАЄ КАРТИНКИ";
+                    zone.style.backgroundColor = "#ffecb3";
+                    setTimeout(() => {{
+                        msg.innerText = "КЛАТЦНІТЬ СЮДИ ТА ТИСНІТЬ Ctrl+V";
+                        zone.style.backgroundColor = "#f8faff";
+                    }}, 2000);
+                }}
+            }});
+            </script>
+        """, height=220)
+    
+    with col2:
+        if st.session_state.get('photo_path') and os.path.exists(st.session_state['photo_path']):
+            st.image(st.session_state['photo_path'], caption="Фото для досьє", width=150)
+        elif os.path.exists('default_avatar.png'):
+            st.image('default_avatar.png', caption="Фото за замовчуванням", width=150)
+
+    # Повертаємо логіку Секції 5 (якщо є вибраний контент)
+    if 'processing_done' in st.session_state and st.session_state['processing_done']:
+        
+        # Секция сортування
+        if selected_content:
+            st.markdown("---")
+            st.header("5️⃣ Збірка та порядок досьє")
+            st.info("💡 1. Перетягніть блоки для зміни порядку. 2. Відредагуйте текст прямо в полях нижче.")
+            
+            if 'edited_texts' not in st.session_state:
+                st.session_state['edited_texts'] = {}
+
+            # CSS для темно-зеленого тексту на білому фоні в полях редагування
+            st.markdown("""
+                <style>
+                div[data-baseweb="textarea"] textarea {
+                    color: #006400 !important;
+                    font-weight: 500;
+                    background-color: #ffffff !important;
+                }
+                </style>
+            """, unsafe_allow_html=True)
+            
+            # 1. Сортування (показуємо компактні "ручки" для перетягування)
+            sort_items_list = []
+            for i, item in enumerate(selected_content):
+                display_label = f"[ID:{i}] "
+                if item.get('header'):
+                    display_label += f"【{item['header']}】 "
+                content_preview = item.get('content', '')[:50] + "..."
+                sort_items_list.append(display_label + content_preview)
+            
+            sorted_labels = sort_items(sort_items_list, direction="vertical")
+            
+            # 2. Визначення впорядкованого списку
+            ordered_content = []
+            if sorted_labels:
+                for label in sorted_labels:
+                    try:
+                        import re
+                        match = re.search(r'\[ID:(\d+)\]', label)
+                        if match:
+                            idx = int(match.group(1))
+                            ordered_content.append(selected_content[idx])
+                    except:
+                        continue
+            else:
+                ordered_content = selected_content
+
+            # 3. Редагування контенту (ВИДАЛЕНО ЗА ЗАПИТОМ)
+            # st.markdown("### ✏️ Редагування вмісту")
+            # ...
+            pass
+        else:
+            ordered_content = []
+
+        # Секція експорту
+        st.markdown("---")
+        st.header("6️⃣ Експорт досьє")
+        
+        if not ordered_content:
+            st.info("Виберіть хоча б один блок для формування досьє")
+        else:
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                if st.button("📥 Завантажити DOCX", type="primary"):
+                    with st.spinner("Генерація DOCX..."):
+                        try:
+                            docx_data = generate_docx(
+                                {"Контент": ordered_content},
+                                photo_path=st.session_state.get('photo_path')
+                            )
+                            
+                            filename = "Dossier.docx"
+                            
+                            st.download_button(
+                                label="💾 Зберегти DOCX",
+                                data=docx_data,
+                                file_name=filename,
+                                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                            )
+                        except Exception as e:
+                            st.error(f"❌ Помилка: {e}")
+            
+    
+            # Кнопка для повного очищення
+            st.markdown("---")
+            if st.button("🧹 Завершити та очистити все", help="Це видалить усі тимчасові фото та скине вибір"):
+                cleanup_temp_photos() # Видаляємо ВСІ тимчасові фото
+                # Очищаємо сесію (залишаємо лише службові змінні)
+                keys_to_keep = ['processing_done', 'all_paragraphs']
+                for key in list(st.session_state.keys()):
+                    if key not in keys_to_keep:
+                        del st.session_state[key]
+                st.rerun()
+
+    else:
+        # Показуємо інструкцію, якщо файли ще не завантажені
+        st.info("👆 Завантажте PDF файли для початку роботи")
+
+
+if __name__ == "__main__":
+    st.set_page_config(
+        page_title="Генератор досьє з PDF",
+        page_icon="📄",
+        layout="wide"
+    )
+    # Перевіряємо наявність default_avatar.png
+    if not os.path.exists('default_avatar.png'):
+        st.warning("⚠️ Файл default_avatar.png не знайдено. Створіть його або завантажте власне фото.")
+    
+    main()

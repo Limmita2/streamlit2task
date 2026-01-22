@@ -1,0 +1,8 @@
+streamlit
+pdfplumber
+python-docx
+reportlab
+pytesseract
+Pillow
+streamlit-sortables
+streamlit-pdf-viewer

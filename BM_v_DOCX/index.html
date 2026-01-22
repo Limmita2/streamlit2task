@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Локальний звіт з архіву · ZIP/RAR → DOCX</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg-0:#0a1226; --bg-1:#0f1a36; --bg-2:#0d1630; --pri-0:#4ea3ff; --pri-1:#2d7dff; --pri-2:#7cc4ff; --txt-0:#eaf2ff; --txt-1:#a9b8d9; --border: rgba(255,255,255,.12); --glass: rgba(255,255,255,.06); --radius:18px; --shadow:0 10px 30px rgba(9,14,40,.35);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;color:var(--txt-0);
+      background:radial-gradient(1200px 700px at 10% 10%, #14224a 0%, transparent 60%),radial-gradient(1200px 700px at 90% 20%, #0b3c7d 0%, transparent 55%),linear-gradient(180deg, #0a132a 0%, #070d1f 100%)}
+    header{position:sticky;top:0;z-index:5;backdrop-filter:saturate(140%) blur(10px);background:linear-gradient(180deg, rgba(10,19,42,.85), rgba(7,13,31,.45));border-bottom:1px solid var(--border)}
+    .wrap{max-width:1100px;margin:0 auto;padding:20px}
+    .bar{display:flex;align-items:center;gap:14px}
+    .logo{width:60px;height:60px;border-radius:12px;background:linear-gradient(135deg,#69afff,#2563eb);display:grid;place-items:center;box-shadow:var(--shadow)}
+    h1{margin:0;font-size:20px;letter-spacing:.2px;font-weight:700}
+    main{padding:28px 20px 56px}
+    .grid{display:grid;grid-template-columns:1.1fr .9fr;gap:22px}
+    @media (max-width:920px){.grid{grid-template-columns:1fr}}
+    .card{background:linear-gradient(180deg, var(--glass), transparent), var(--bg-1);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+    .card-head{display:flex;align-items:center;justify-content:space-between;padding:18px 18px 0}
+    .card-title{font-size:15px;letter-spacing:.2px;text-transform:uppercase;color:var(--pri-2);font-weight:700}
+    .upload{margin:18px;padding:24px;border:1.5px dashed rgba(126,178,255,.35);border-radius:calc(var(--radius) - 6px);background:linear-gradient(180deg, rgba(78,163,255,.08), rgba(51,112,214,.05));transition:.25s ease}
+    .upload:hover{border-color:rgba(126,178,255,.7);box-shadow:0 0 0 6px rgba(77,161,255,.08)}
+    .upload:focus-within{outline:none;border-color:var(--pri-0);box-shadow:0 0 0 8px rgba(77,161,255,.14)}
+    .row{display:grid;grid-template-columns:1fr;gap:14px}
+    label{font-size:13px;color:var(--txt-1);display:block;margin-bottom:8px}
+    input[type="file"]{width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:var(--bg-2);color:var(--txt-0)}
+    .hint{color:var(--txt-1);font-size:12px;margin-top:6px}
+    .actions{display:flex;gap:12px;align-items:center;margin:18px}
+    .btn{appearance:none;border:0;border-radius:14px;padding:12px 16px;font-weight:700;cursor:pointer;color:white;background:linear-gradient(135deg,#409cff,#2563eb)}
+    .btn:disabled{opacity:.5;cursor:not-allowed}
+    .btn--ghost{background:transparent;border:1px solid rgba(126,178,255,.35);color:var(--pri-2)}
+    .badge{display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:12px;background:rgba(126,178,255,.08);font-size:12px;color:var(--txt-1)}
+    .log{padding:18px;white-space:pre-wrap;color:var(--txt-1);font-size:13px;max-height:340px;overflow:auto}
+    footer{opacity:.8;color:var(--txt-1);text-align:center;padding:30px 10px}
+    .hidden{display:none}
+    #mapStage, #mapOverview{width:640px;height:400px;position:absolute;left:-9999px;top:-9999px}
+    .kudos{font-size:12px;color:var(--txt-1);margin:0 18px 18px}
+  </style>
+  <!-- JS libs (CDN) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script src="https://unpkg.com/leaflet-image/leaflet-image.js"></script> 
+  <script src="https://xenova.github.io/unarchiver.js/dist/unarchiver.min.js"></script>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <div class="bar">
+        <div class="logo" aria-hidden="true"><img src="./images/photo_2025-09-22_22-10-14-Photoroom.png"
+          style="width:60px;height:60px"></div>
+        <h1>Локальне витягнення з архіву · ZIP/RAR → DOCX</h1>
+        <div class="badge" style="margin-left:auto">Працює повністю в браузері (без сервера)</div>
+      </div>
+    </div>
+  </header>
+  <main class="wrap">
+    <div class="grid">
+      <section class="card" aria-labelledby="upload-title">
+        <div class="card-head">
+          <div class="card-title" id="upload-title">Завантаження архіву</div>
+          <div class="badge">перетягнути · або вибрати файл</div>
+        </div>
+        <div class="upload" id="dropzone" tabindex="0" role="button" aria-label="Перетягніть архів сюди або оберіть файл">
+          <div class="row">
+            <div>
+              <label>Архів (*.zip, *.rar)</label>
+              <input id="fileInput" type="file" accept=".zip,.rar" />
+              <div class="hint">Підтримуються ZIP та RAR (RAR5 може не відкритися — залежить від способу стиснення).</div>
+            </div>
+          </div>
+          <div class="actions">
+            <button id="startBtn" class="btn" disabled>Витягти та згенерувати звіти</button>
+            <button id="resetBtn" class="btn btn--ghost" disabled>Скинути</button>
+          </div>
+          <p class="kudos">Зображення карт завантажуються з OpenStreetMap. ©️ OpenStreetMap contributors.</p>
+        </div>
+        <pre class="log" id="log" aria-live="polite"></pre>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <div class="card-title">Результати</div>
+          <div class="badge">Завантажується тільки DOCX</div>
+        </div>
+        <div class="log" id="resultInfo">Поки порожньо…</div>
+      </section>
+    </div>
+
+    <!-- оффскрин сцени карт -->
+    <div id="mapStage" class="hidden"></div>
+    <div id="mapOverview" class="hidden"></div>
+    <div id="docxHtml" class="hidden" style="position:absolute;left:-9999px;top:-9999px;width:794px"></div>
+  </main>
+  <footer>&copy; 2025 · локальний інструмент</footer>
+
+<script>
+  const logEl = document.getElementById('log');
+  const resultEl = document.getElementById('resultInfo');
+  const dropzone = document.getElementById('dropzone');
+  const fileInput = document.getElementById('fileInput');
+  const startBtn = document.getElementById('startBtn');
+  const resetBtn = document.getElementById('resetBtn');
+
+  let archiveFile = null;
+
+  function log(msg){ logEl.textContent += msg + "\n"; logEl.scrollTop = logEl.scrollHeight; }
+  function safeName(s){ return (s||'').replace(/[^\w\-\.]/g,'_'); }
+
+  const CANDS = {
+    plate:["plate","license","license_plate","regnum","car_number","number","номер","госномер","держномер","номер авто","номер_авто","реєстраційний номер"],
+    time:["time","datetime","timestamp","date_time","pass_time","время","дата","дата/время","дата и время","час","дата час","час проходу","час отримання","дата_час"],
+    lat:["lat","latitude","широта","координата широта","latitud"],
+    lon:["lon","lng","longitude","долгота","довгота","координата долгота","longitud"],
+    loc:["location","address","адрес","локация","место","адреса","локація","місцезнаходження"],
+    photo:["photo","image","img","photo_name","image_name","filename","file_name","picture","фото","зображення","имя изображения","ім'я зображення","название файла","ім'я файлу","імені зображення"]
+  };
+  function findCol(cols, list){
+    const lower = Object.fromEntries(cols.map(c=>[c.toLowerCase(),c]));
+    for(const cand of list){
+      if(lower[cand.toLowerCase()]) return lower[cand.toLowerCase()];
+      for(const [l,orig] of Object.entries(lower)) if(l.includes(cand.toLowerCase())) return orig;
+    }
+    return null;
+  }
+
+  dropzone.addEventListener('dragover', e=>{ e.preventDefault(); dropzone.classList.add('hover'); });
+  dropzone.addEventListener('dragleave', ()=> dropzone.classList.remove('hover'));
+  dropzone.addEventListener('drop', e=>{
+    e.preventDefault(); dropzone.classList.remove('hover');
+    const f = e.dataTransfer.files[0];
+    if(f){ fileInput.files = e.dataTransfer.files; onFilePick(f); }
+  });
+  fileInput.addEventListener('change', e=>{ const f = e.target.files[0]; if(f) onFilePick(f); });
+  resetBtn.addEventListener('click', ()=>{ archiveFile=null; fileInput.value=''; startBtn.disabled=true; resetBtn.disabled=true; logEl.textContent=''; resultEl.textContent='Поки порожньо…'; });
+
+  function checkReady(){ startBtn.disabled = !archiveFile; resetBtn.disabled = !archiveFile; }
+  function onFilePick(f){ if(!/\.(zip|rar)$/i.test(f.name)){ alert('Підтримуються лише .zip та .rar'); return; } archiveFile=f; log('Обрано файл: '+f.name); checkReady(); }
+
+  startBtn.addEventListener('click', async ()=>{
+    startBtn.disabled=true;
+    try{ await run(); }catch(err){ console.error(err); log('Помилка: '+(err && err.message ? err.message : String(err))); alert('Помилка: '+(err && err.message ? err.message : String(err))); } finally { startBtn.disabled=false; }
+  });
+
+  // Форматування дати/часу для DOCX у форматі dd.mm.yyyy гг:хх:сс
+  function formatDateTimeForWord(s){
+    if(!s && s !== 0) return '';
+    const str = String(s).trim();
+    if(!str) return '';
+    // Спроба розпарсити стандартним конструктором
+    let d = new Date(str);
+    if(isNaN(d.getTime())){
+      // Спроба знайти патерн дд.мм.рррр [час]
+      const m = str.match(/(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{2,4})(?:\s+|T)?(\d{1,2}:\d{2}(?::\d{2})?)?/);
+      if(m){
+        let day = m[1].padStart(2,'0');
+        let month = m[2].padStart(2,'0');
+        let year = m[3];
+        if(year.length === 2) year = '20' + year;
+        const time = (m[4] || '00:00:00');
+        const iso = `${year}-${month}-${day}T${time}`;
+        d = new Date(iso);
+      }
+    }
+    if(isNaN(d.getTime())) return str; // якщо не вдалося розпарсити — повертаємо як є
+    const pad = n => String(n).padStart(2,'0');
+    return `${pad(d.getDate())}.${pad(d.getMonth()+1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  }
+
+  async  function run(){
+    log('Читаю архів…');
+    const reader = await openArchive(archiveFile);
+
+    // Знаходимо таблицю (xlsx/xls/csv)
+    const tableName = reader.names.find(n=>/\.(xlsx|xls|csv)$/i.test(n));
+    if(!tableName) throw new Error('У архіві не знайдено таблицю (.xlsx/.xls/.csv)');
+    log('Знайдено таблицю: '+tableName);
+
+    const ext = tableName.toLowerCase().split('.').pop();
+    let rows=[]; let cols=[];
+    if(ext==='csv'){
+      const text = await reader.text(tableName);
+      const arr = text.split(/\r?\n/).filter(Boolean).map(r=>r.split(/,|;|\t/));
+      cols = arr.shift();
+      rows = arr.map(r=>Object.fromEntries(cols.map((c,i)=>[c, r[i]])));
+    } else {
+      const buf = await reader.arrayBuffer(tableName);
+      const wb = XLSX.read(buf, {type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      rows = XLSX.utils.sheet_to_json(ws, {defval:''});
+      cols = Object.keys(rows[0]||{});
+    }
+    if(!rows.length) throw new Error('Таблиця порожня.');
+    log('Опрацьовано таблицю: '+tableName);
+    // Авто-розпізнавання колонок
+    const col_time  = findCol(cols, CANDS.time);
+    const col_lat   = findCol(cols, CANDS.lat);
+    const col_lon   = findCol(cols, CANDS.lon);
+    const col_loc   = findCol(cols, CANDS.loc);
+    const col_photo = findCol(cols, CANDS.photo);
+
+    if(!col_time){ throw new Error('Не вдалося визначити обов\'язкову колонку часу. Знайдено: '+JSON.stringify({col_time,col_lat,col_lon,col_loc,col_photo})); }
+
+    // Підготовка для пошуку вкладених фото
+    function resolvePhoto(name){ if(!name) return null; const n = String(name).split(/[\\/]/).pop(); const hit = reader.names.find(p=>p.toLowerCase().endsWith('/'+n.toLowerCase()) || p.toLowerCase()===n.toLowerCase()); return hit||null; }
+    async function fileDataUrl(path){ const ext = path.toLowerCase().split('.').pop(); const mime = (ext==='png')?'image/png':(ext==='jpg'||ext==='jpeg'?'image/jpeg':'application/octet-stream'); const b = await reader.uint8(path); const blob = new Blob([b], {type:mime}); return blobToDataURL(blob); }
+
+    // Генерація карт і збір даних
+    function createStage(w, h) {
+      const div = document.createElement('div');
+      div.style.width = (w || 640) + 'px';
+      div.style.height = (h || 400) + 'px';
+      div.style.position = 'fixed';
+      div.style.left = '-10000px';
+      div.style.top = '0';
+      div.style.zIndex = '-1';
+      document.body.appendChild(div);
+      return div;
+    }
+    function destroyStage(div) {
+      if (div && div.parentNode) div.parentNode.removeChild(div);
+    }
+    function leafletToImage(map){
+      return new Promise((resolve, reject) => {
+        leafletImage(map, (err, canvas) => {
+          if (err) return reject(err);
+          try {
+            resolve(canvas.toDataURL('image/png'));
+          } catch (e) {
+            reject(e);
+          }
+        });
+      });
+    }
+    async function waitLayout() {
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    }
+    async function renderPointMap(lat, lon, zoom = 18) {
+      const stage = createStage(640, 400);
+      await waitLayout();
+        const m = L.map(stage, { zoomControl: false, attributionControl: false });
+        const tiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+          { maxZoom: 19, crossOrigin: true }).addTo(m);
+        m.setView([lat, lon], zoom);
+        L.marker([lat, lon]).addTo(m);
+        m.invalidateSize(true);
+        await new Promise(res => tiles.once('load', res));
+        const url = await leafletToImage(m);
+        m.remove();
+        destroyStage(stage);
+        return url;
+      }
+    async function renderOverview(points) {
+      if (!points.length) return null;
+      const stage = createStage(960, 540);
+      await waitLayout();
+      const m = L.map(stage, { zoomControl: false, attributionControl: false });
+      const tiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        { maxZoom: 19, crossOrigin: true }).addTo(m);
+      const group = L.featureGroup(points.map(p => L.marker([p.lat, p.lon]))).addTo(m);
+      m.fitBounds(group.getBounds().pad(0.25));
+      m.invalidateSize(true);
+      await new Promise(res => tiles.once('load', res));
+      const url = await leafletToImage(m);
+      m.remove();
+      destroyStage(stage);
+      return url;
+    }
+
+    const records = [];
+    const pts = [];
+    for(let i=0;i<rows.length;i++){
+      const r = rows[i];
+      const t = r[col_time] || '';
+      const loc = r[col_loc] || '';
+      const lat = parseFloat(r[col_lat]);
+      const lon = parseFloat(r[col_lon]);
+
+      let mapUrl = null;
+      if(Number.isFinite(lat) && Number.isFinite(lon)){
+        pts.push({lat,lon});
+        try{ mapUrl = await renderPointMap(lat,lon); }catch(e){ log('Карту для рядка '+(i+1)+' не побудовано: '+(e && e.message ? e.message : String(e))); }
+      }
+
+      let photoUrl = null;
+      if(col_photo){ const ph = resolvePhoto(r[col_photo]); if(ph){ try{ photoUrl = await fileDataUrl(ph); }catch(_){} } }
+
+      // Форматуємо час у потрібному вигляді
+      const formattedTime = formatDateTimeForWord(t);
+
+      records.push({time:formattedTime, location:String(loc||''), photoUrl, mapUrl});
+    }
+
+    const overviewUrl = await renderOverview(pts);
+
+    // ===== DOCX =====
+    log('Генерую DOCX…');
+    const {
+      Document, Packer, Paragraph, HeadingLevel,
+      Table, TableRow, TableCell, WidthType,
+      TextRun, ImageRun
+    } = docx;
+    
+    // Налаштування ширин колонок (DXA — одиниці для docx width типу DXA)
+    // Підібрані так, щоб колонки були відносно вузькі і текст красиво вміщувався
+    const COL_WIDTH_TIME = { size: 1600, type: WidthType.DXA };    // вузька — для дати/часу
+    const COL_WIDTH_LOC  = { size: 5200, type: WidthType.DXA };    // середня — для адреси
+    const COL_WIDTH_PHOTO= { size: 3200, type: WidthType.DXA };    // фото-прев'ю
+    const COL_WIDTH_MAP  = { size: 3200, type: WidthType.DXA };    // карта
+
+    // утиліти
+    async function dataUrlToUint8(url) {
+      const res = await fetch(url);
+      const buf = await res.arrayBuffer();
+      return new Uint8Array(buf);
+    }
+
+    // Генератори клітинок з шириною
+    const cellText  = (t, width) => new TableCell({
+      width: width || COL_WIDTH_LOC,
+      children: [ new Paragraph(String(t ?? '')) ]
+    });
+    const cellEmpty = (width) => new TableCell({
+      width: width || COL_WIDTH_PHOTO,
+      children: [ new Paragraph('') ]
+    });
+    const cellImage = (u8, wPx=200, hPx=120, width) =>
+      new TableCell({
+        width: width || COL_WIDTH_PHOTO,
+        children: [ new Paragraph({
+          children: [ new ImageRun({ data: u8, transformation: { width: wPx, height: hPx } }) ]
+        }) ]
+      });
+    
+    // заголовок таблиці з вужчими колонками
+    const headerRow = new TableRow({
+      children: [
+        cellText('Час', COL_WIDTH_TIME),
+        cellText('Локація/Адреса', COL_WIDTH_LOC),
+        cellText('Фото (попередній перегляд)', COL_WIDTH_PHOTO),
+        cellText('Карта', COL_WIDTH_MAP),
+      ]
+    });
+    
+    // рядки таблиці
+    const dataRows = [];
+    for (const rec of records) {
+      const t   = cellText(rec.time, COL_WIDTH_TIME);
+      const loc = cellText(rec.location, COL_WIDTH_LOC);
+    
+      let photoCell = cellEmpty(COL_WIDTH_PHOTO);
+      if (rec.photoUrl) {
+        try { photoCell = cellImage(await dataUrlToUint8(rec.photoUrl), 180, 120, COL_WIDTH_PHOTO); } catch { /* пропускаємо */ }
+      }
+    
+      let mapCell = cellText('Немає координат', COL_WIDTH_MAP);
+      if (rec.mapUrl) {
+        try { mapCell = cellImage(await dataUrlToUint8(rec.mapUrl), 180, 120, COL_WIDTH_MAP); } catch { /* пропускаємо */ }
+      }
+    
+      dataRows.push(new TableRow({ children: [ t, loc, photoCell, mapCell ] }));
+    }
+    
+    // сама таблиця — ширина відносна (100%) але колонки мають фіксовані DXA-ширини вище
+    const table = new Table({
+      rows: [ headerRow, ...dataRows ],
+      width: { size: 100, type: WidthType.PERCENTAGE }
+    });
+    
+    // вміст документа
+    const children = [
+      new Paragraph({ text: `Звіт з архіву: ${archiveFile.name}`, heading: HeadingLevel.TITLE }),
+      new Paragraph({ children: [ new TextRun(`Джерело: ${archiveFile.name}`) ] }),
+      new Paragraph({ children: [ new TextRun(`Всього записів: ${records.length}`) ] }),
+      table,
+    ];
+    
+    if (overviewUrl) {
+      children.push(new Paragraph({ text: 'Карта з точками', heading: HeadingLevel.HEADING_2 }));
+      try {
+        children.push(new Paragraph({
+          children: [ new ImageRun({ data: await dataUrlToUint8(overviewUrl), transformation: { width: 500, height: 300 } }) ]
+        }));
+      } catch { /* пропускаємо */ }
+    }
+    
+    // створюємо документ
+    const doc = new Document({
+      creator: 'LocalTool',
+      sections: [{ children }]
+    });
+    
+    // зберігаємо DOCX і пропонуємо завантаження
+    const blobDocx = await Packer.toBlob(doc);
+    const ts = new Date().toISOString().replace(/[:.]/g, '-');
+    const baseName = 'report_' + safeName(archiveFile.name.replace(/\.(zip|rar)$/i, '')) + '_' + ts;
+    triggerDownload(blobDocx, `${baseName}.docx`);
+
+    log('Готово: згенеровано DOCX.');
+    resultEl.textContent = `Готово: завантажено файл ${baseName}.docx`;
+  }
+
+  function triggerDownload(blob, filename){ const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 1000); }
+  function blobToDataURL(blob){ return new Promise(res=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.readAsDataURL(blob); }); }
+
+  // ===== Універсальний рідер архіву (ZIP/RAR) =====
+  async function openArchive(file){
+    const lower = file.name.toLowerCase();
+    if(lower.endsWith('.zip')){
+      const ab = await file.arrayBuffer();
+      const zip = await JSZip.loadAsync(ab);
+      const names = Object.keys(zip.files);
+      return {
+        names,
+        async arrayBuffer(name){ return zip.files[name].async('arraybuffer'); },
+        async uint8(name){ const ab = await this.arrayBuffer(name); return new Uint8Array(ab); },
+        async text(name){ return zip.files[name].async('string'); }
+      };
+    }  else if (lower.endsWith('.rar')) {
+      // Підвантажуємо підтримку RAR (опціонально)
+      await Unarchiver.load(['rar']);
+
+      // Відкриваємо архів з File
+      const arch = await Unarchiver.open(file);
+
+      // Список імен файлів (без папок)
+      const names = arch.entries.filter(e => e.is_file).map(e => e.name);
+
+      function getEntry(name) {
+        const entry = arch.entries.find(e => e.name === name && e.is_file);
+        if (!entry) throw new Error('Файл не знайдено в архіві: ' + name);
+        return entry;
+      }
+
+      return {
+        names,
+        async arrayBuffer(name) {
+          const entryFile = await getEntry(name).read();
+          return entryFile.arrayBuffer();
+        },
+        async uint8(name) {
+          const ab = await this.arrayBuffer(name);
+          return new Uint8Array(ab);
+        },
+        async text(name) {
+          const ab = await this.arrayBuffer(name);
+          return new TextDecoder('utf-8', { fatal: false }).decode(new Uint8Array(ab));
+        }
+      };
+    } else {
+      throw new Error('Підтримуються лише .zip та .rar файли');
+    }
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+[
+    {
+        "name": "IPNP Application",
+        "description": "Приложение для работы с IPNP и HTML генерацией.",
+        "page_file": "pages/1_IPNP_Application.py",
+        "icon": "📝"
+    },
+    {
+        "name": "BM DOCX Viewer",
+        "description": "Обробка архивів з БМ",
+        "page_file": "pages/2_BM_DOCX_Viewer.py",
+        "icon": "📄"
+    },
+    {
+        "name": "Person PDF Matcher",
+        "description": "Приложение для сопоставления людей в PDF (В разработке).",
+        "page_file": "pages/3_Person_PDF_Matcher.py",
+        "icon": "👥"
+    }
+]
