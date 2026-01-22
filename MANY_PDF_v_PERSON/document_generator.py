@@ -8,6 +8,7 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
+from io import BytesIO
 from PIL import Image
 import io
 import os
@@ -15,7 +16,7 @@ import os
 
 import re
 
-def generate_docx(data: dict, photo_path: str = None) -> bytes:
+def generate_docx(data: dict, photo_bytes: bytes = None) -> bytes:
     """
     Генерує документ Word з вибраних абзаців.
     """
@@ -110,11 +111,14 @@ def generate_docx(data: dict, photo_path: str = None) -> bytes:
     
     # Додаємо фото в ліву клітинку
     left_cell = table.rows[0].cells[0]
-    photo_to_use = photo_path if photo_path and os.path.exists(photo_path) else 'default_avatar.png'
-    if os.path.exists(photo_to_use):
+    if photo_bytes:
         paragraph = left_cell.paragraphs[0]
         run = paragraph.add_run()
-        run.add_picture(photo_to_use, width=Inches(1.8))
+        run.add_picture(BytesIO(photo_bytes), width=Inches(1.8))
+    elif os.path.exists('default_avatar.png'):
+        paragraph = left_cell.paragraphs[0]
+        run = paragraph.add_run()
+        run.add_picture('default_avatar.png', width=Inches(1.8))
     
     # Встановлюємо ширину колонок через клітинки
     left_cell.width = Inches(2.0)

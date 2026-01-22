@@ -82,8 +82,7 @@ def cleanup_temp_photos(exclude_path=None):
 
 
 def main():
-    # 0. Очищення старих фото при кожному запуску (крім поточного)
-    cleanup_temp_photos(exclude_path=st.session_state.get('photo_path'))
+    # Очищення старих фото більше не потрібно, оскільки фото зберігаються в session_state
 
     # Заголовок
     st.title("📄 Генератор особистого досьє з PDF")
@@ -239,22 +238,20 @@ def main():
         # 1. ОБРОБКА ВСТАВКИ (якщо дані нові)
         if paste_result and paste_result != st.session_state['last_processed_paste']:
             try:
+                if not paste_result.startswith("data:image"):
+                    raise ValueError("Неправильний формат даних зображення")
                 img_data = paste_result.split(",")[1]
                 img_bytes = base64.b64decode(img_data)
                 img = Image.open(BytesIO(img_bytes))
                 
-                new_path = f"temp_photo_{int(time.time())}.png"
-                img.save(new_path)
+                # Конвертуємо зображення назад у base64 для зберігання в session_state
+                buffered = BytesIO()
+                img.save(buffered, format="PNG")
+                img_base64 = base64.b64encode(buffered.getvalue()).decode()
                 
-                # Видаляємо старий тимчасовий файл
-                old_path = st.session_state.get('photo_path')
-                if old_path and os.path.exists(old_path) and "temp_photo_" in old_path:
-                    try: os.remove(old_path)
-                    except: pass
-                
-                st.session_state['photo_path'] = new_path
+                st.session_state['photo_data'] = img_base64
                 st.session_state['last_processed_paste'] = paste_result
-                st.rerun()
+                # st.rerun()  # Убираем rerun, чтобы избежать циклов
             except Exception as e:
                 st.error(f"Помилка вставки: {e}")
 
@@ -264,12 +261,15 @@ def main():
             file_id = f"{uploaded_photo.name}_{uploaded_photo.size}"
             if st.session_state.get('last_uploaded_id') != file_id:
                 img = Image.open(uploaded_photo)
-                new_path = f"temp_photo_{int(time.time())}.png"
-                img.save(new_path)
                 
-                st.session_state['photo_path'] = new_path
+                # Конвертуємо зображення у base64 для зберігання в session_state
+                buffered = BytesIO()
+                img.save(buffered, format="PNG")
+                img_base64 = base64.b64encode(buffered.getvalue()).decode()
+                
+                st.session_state['photo_data'] = img_base64
                 st.session_state['last_uploaded_id'] = file_id
-                st.rerun()
+                # st.rerun()  # Убираем rerun, чтобы избежать циклов
         
         import streamlit.components.v1 as components
         
@@ -352,8 +352,10 @@ def main():
         """, height=220)
     
     with col2:
-        if st.session_state.get('photo_path') and os.path.exists(st.session_state['photo_path']):
-            st.image(st.session_state['photo_path'], caption="Фото для досьє", width=150)
+        if 'photo_data' in st.session_state:
+            img_bytes = base64.b64decode(st.session_state['photo_data'])
+            img = Image.open(BytesIO(img_bytes))
+            st.image(img, caption="Фото для досьє", width=150)
         elif os.path.exists('default_avatar.png'):
             st.image('default_avatar.png', caption="Фото за замовчуванням", width=150)
 
@@ -426,9 +428,13 @@ def main():
                 if st.button("📥 Завантажити DOCX", type="primary"):
                     with st.spinner("Генерація DOCX..."):
                         try:
+                            photo_bytes = None
+                            if 'photo_data' in st.session_state:
+                                photo_bytes = base64.b64decode(st.session_state['photo_data'])
+                            
                             docx_data = generate_docx(
                                 {"Контент": ordered_content},
-                                photo_path=st.session_state.get('photo_path')
+                                photo_bytes=photo_bytes
                             )
                             
                             filename = "Dossier.docx"
