@@ -1,0 +1,16 @@
+[global]
+developmentMode = false
+dataFrameSerialization = "legacy"
+
+[server]
+headless = true
+port = 8501
+
+[browser]
+gatherUsageStats = false
+
+[client]
+showSidebarNavigation = true
+
+[theme]
+base = "light"

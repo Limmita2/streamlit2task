@@ -1,0 +1,14 @@
+streamlit
+pandas
+folium
+requests
+openpyxl
+xlrd
+branca
+pdfplumber
+python-docx
+reportlab
+pytesseract
+Pillow
+streamlit-sortables
+streamlit-pdf-viewer
