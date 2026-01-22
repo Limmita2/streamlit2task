@@ -1,7 +1,7 @@
 [
     {
         "name": "IPNP Application",
-        "description": "Приложение для работы с IPNP и HTML генерацией.",
+        "description": "Обробка маршрута з ІПНП та HTML генерацией.",
         "page_file": "pages/1_IPNP_Application.py",
         "icon": "📝"
     },
@@ -13,8 +13,9 @@
     },
     {
         "name": "Person PDF Matcher",
-        "description": "Приложение для сопоставления людей в PDF (В разработке).",
+        "description": "Юбробка профіля на особу з ІПНП",
         "page_file": "pages/3_Person_PDF_Matcher.py",
         "icon": "👥"
     }
+
 ]
