@@ -151,15 +151,6 @@ def main():
             if active_file not in st.session_state['selections']:
                 st.session_state['selections'][active_file] = [True] * len(paragraphs)
             
-            # Кнопки управления
-            c1, c2 = st.columns(2)
-            if c1.button("✅ Выбрать все", key=f"all_{active_file}"):
-                st.session_state['selections'][active_file] = [True] * len(paragraphs)
-                st.rerun()
-            if c2.button("❌ Снять все", key=f"none_{active_file}"):
-                st.session_state['selections'][active_file] = [False] * len(paragraphs)
-                st.rerun()
-
             with st.container():
                 for i, block in enumerate(paragraphs):
                     header = block.get("header", "")
