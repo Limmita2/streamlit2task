@@ -36,8 +36,10 @@ def generate_docx(data: dict, photo_bytes: bytes = None) -> bytes:
     font.size = Pt(14)
 
     BOLD_PATTERN = r'(Mарка\s*:|заявник\s*:|Марка\s*:|свідок\s*\(учасник\)\s*:|ухилянт\s*:|Вид\s*:|правопорушник\s*:|Номер\s*дозволу\s*:|телефони\s*:|[МM][іi][сc]ц[еe]\s*[нH][аa][рp][оo]дж[еe][нH]{2}я\s*:|Громадянство\s*:|постраждалий\s*\(потерпілий\)\s*:|категорія\s*:|№\s+[А-ЯІЇ]{2,4}\s+\d+(?:\s+[А-ЯІЇ]{2}\s+\d+)?\s+від\s+\d{2}\.\d{2}\.\d{4}\s+\d{2}:\d{2}:\d{2}\s*,\s*орган:)'
+    
+    INTRO_PATTERN = r'(Місце\s*народження\s*:|Громадянство\s*:)'
 
-    def add_bulleted_content(container, text, alignment=None, use_bullet_style=True, bold_matches=True, bold_content=False, pattern=BOLD_PATTERN):
+    def add_bulleted_content(container, text, alignment=None, use_bullet_style=True, bold_matches=True, bold_content=False, pattern=BOLD_PATTERN, exclude_pattern=None):
         """Разбивает текст по шаблону и создает маркированный список для ключевых слов."""
         if pattern:
             parts = re.split(pattern, text)
@@ -49,6 +51,12 @@ def generate_docx(data: dict, photo_bytes: bytes = None) -> bytes:
                 
                 # Проверяем, является ли часть ключевым словом
                 if re.fullmatch(pattern, part):
+                    # Если часть совпадает с исключаемым паттерном, не делаем её жирной
+                    if exclude_pattern and re.fullmatch(exclude_pattern, part):
+                        is_bold = False
+                    else:
+                        is_bold = bold_matches
+                    
                     # Начинаем новый абзац (маркированный или обычный)
                     style = 'List Bullet' if use_bullet_style else None
                     current_p = container.add_paragraph(style=style)
@@ -58,7 +66,7 @@ def generate_docx(data: dict, photo_bytes: bytes = None) -> bytes:
                         current_p.alignment = alignment
                     
                     run = current_p.add_run(part)
-                    run.bold = bold_matches
+                    run.bold = is_bold
                     run.font.name = 'Times New Roman'
                     run.font.size = Pt(14)
                 else:
@@ -154,7 +162,7 @@ def generate_docx(data: dict, photo_bytes: bytes = None) -> bytes:
         # Ключевые слова (bold_matches=False) - обычные
         # Контент (bold_content=True) - жирный
         add_bulleted_content(right_cell, intro_text, alignment=WD_ALIGN_PARAGRAPH.LEFT, 
-                             use_bullet_style=False, bold_matches=False, bold_content=True, pattern=None)
+                             use_bullet_style=False, bold_matches=True, bold_content=True, pattern=BOLD_PATTERN, exclude_pattern=INTRO_PATTERN)
     else:
         title_paragraph = right_cell.paragraphs[0]
         title_paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
