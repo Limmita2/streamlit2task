@@ -35,43 +35,56 @@ def generate_docx(data: dict, photo_bytes: bytes = None) -> bytes:
     font.name = 'Times New Roman'
     font.size = Pt(14)
 
-    BOLD_PATTERN = r'(Mарка\s*:|заявник\s*:|Марка\s*:|свідок\s*\(учасник\)\s*:|ухилянт\s*:|Вид\s*:|правопорушник\s*:|Номер\s*дозволу\s*:|місце\s*проживання\s*:|телефони\s*:|[МM][іi][сc]ц[еe]\s*[нH][аa][рp][оo]дж[еe][нH]{2}я\s*:|Громадянство\s*:|№\s*[А-ЯІЇЄҐ]{3}\s*\d{7}(?:\s*[А-ЯІЇЄҐ]{3}\s*\d{7})?\s*від|№\s*[А-ЯІЇЄҐ]{3}\d+\s*\d+\s*від)'
+    BOLD_PATTERN = r'(Mарка\s*:|заявник\s*:|Марка\s*:|свідок\s*\(учасник\)\s*:|ухилянт\s*:|Вид\s*:|правопорушник\s*:|Номер\s*дозволу\s*:|телефони\s*:|[МM][іi][сc]ц[еe]\s*[нH][аa][рp][оo]дж[еe][нH]{2}я\s*:|Громадянство\s*:|постраждалий\s*\(потерпілий\)\s*:|категорія\s*:|№\s+[А-ЯІЇ]{2,4}\s+\d+(?:\s+[А-ЯІЇ]{2}\s+\d+)?\s+від\s+\d{2}\.\d{2}\.\d{4}\s+\d{2}:\d{2}:\d{2}\s*,\s*орган:)'
 
-    def add_bulleted_content(container, text, alignment=None, use_bullet_style=True, bold_matches=True, bold_content=False):
+    def add_bulleted_content(container, text, alignment=None, use_bullet_style=True, bold_matches=True, bold_content=False, pattern=BOLD_PATTERN):
         """Разбивает текст по шаблону и создает маркированный список для ключевых слов."""
-        parts = re.split(BOLD_PATTERN, text)
-        current_p = None
-        
-        for part in parts:
-            if not part:
-                continue
+        if pattern:
+            parts = re.split(pattern, text)
+            current_p = None
             
-            # Проверяем, является ли часть ключевым словом
-            if re.fullmatch(BOLD_PATTERN, part):
-                # Начинаем новый абзац (маркированный или обычный)
-                style = 'List Bullet' if use_bullet_style else None
-                current_p = container.add_paragraph(style=style)
-                current_p.paragraph_format.space_before = Pt(0)
-                current_p.paragraph_format.space_after = Pt(2)
-                if alignment is not None:
-                    current_p.alignment = alignment
+            for part in parts:
+                if not part:
+                    continue
                 
-                run = current_p.add_run(part)
-                run.bold = bold_matches
-                run.font.name = 'Times New Roman'
-                run.font.size = Pt(14)
-            else:
-                if current_p is None:
-                    # Если ключевых слов еще не было, создаем обычный абзац
-                    current_p = container.add_paragraph()
+                # Проверяем, является ли часть ключевым словом
+                if re.fullmatch(pattern, part):
+                    # Начинаем новый абзац (маркированный или обычный)
+                    style = 'List Bullet' if use_bullet_style else None
+                    current_p = container.add_paragraph(style=style)
+                    current_p.paragraph_format.space_before = Pt(0)
                     current_p.paragraph_format.space_after = Pt(2)
                     if alignment is not None:
                         current_p.alignment = alignment
-                
-                run = current_p.add_run(part)
-                run.bold = bold_content
-                run.font.name = 'Times New Roman'
-                run.font.size = Pt(14)
+                    
+                    run = current_p.add_run(part)
+                    run.bold = bold_matches
+                    run.font.name = 'Times New Roman'
+                    run.font.size = Pt(14)
+                else:
+                    if current_p is None:
+                        # Если ключевых слов еще не было, создаем обычный абзац
+                        current_p = container.add_paragraph()
+                        current_p.paragraph_format.space_before = Pt(0)
+                        current_p.paragraph_format.space_after = Pt(2)
+                        if alignment is not None:
+                            current_p.alignment = alignment
+                    
+                    run = current_p.add_run(part)
+                    run.bold = bold_content
+                    run.font.name = 'Times New Roman'
+                    run.font.size = Pt(14)
+        else:
+            # Просто добавляем текст как обычный
+            current_p = container.add_paragraph()
+            current_p.paragraph_format.space_before = Pt(0)
+            current_p.paragraph_format.space_after = Pt(2)
+            if alignment is not None:
+                current_p.alignment = alignment
+            run = current_p.add_run(text)
+            run.bold = bold_content
+            run.font.name = 'Times New Roman'
+            run.font.size = Pt(14)
     
     # 1. ЗАГАЛЬНИЙ ЗАГОЛОВОК ДОКУМЕНТА (Блакитна полоса)
     t_top = doc.add_table(rows=1, cols=1)
@@ -141,7 +154,7 @@ def generate_docx(data: dict, photo_bytes: bytes = None) -> bytes:
         # Ключевые слова (bold_matches=False) - обычные
         # Контент (bold_content=True) - жирный
         add_bulleted_content(right_cell, intro_text, alignment=WD_ALIGN_PARAGRAPH.LEFT, 
-                             use_bullet_style=False, bold_matches=False, bold_content=True)
+                             use_bullet_style=False, bold_matches=False, bold_content=True, pattern=None)
     else:
         title_paragraph = right_cell.paragraphs[0]
         title_paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
@@ -161,7 +174,7 @@ def generate_docx(data: dict, photo_bytes: bytes = None) -> bytes:
             if header == "Початок документа":
                 # Виводимо тільки контент як звичайний текст на початку
                 if content:
-                    add_bulleted_content(doc, content)
+                    add_bulleted_content(doc, content, pattern=None)
                     # Добавляем отступ после вводного блока
                     doc.add_paragraph().paragraph_format.space_after = Pt(6)
                 continue
@@ -199,7 +212,8 @@ def generate_docx(data: dict, photo_bytes: bytes = None) -> bytes:
             for i, p_text in enumerate(paragraphs_list):
                 if p_text.strip():
                     # Применяем выравнивание по центру для всех блоков кроме "Початок документа"
-                    p_c = add_bulleted_content(doc, p_text.strip(), alignment=WD_ALIGN_PARAGRAPH.JUSTIFY)
+                    pat = r'(місце\s*проживання\s*:|' + BOLD_PATTERN[1:] if header == "Адреса" else BOLD_PATTERN
+                    p_c = add_bulleted_content(doc, p_text.strip(), alignment=WD_ALIGN_PARAGRAPH.JUSTIFY, pattern=pat)
     
     buffer = io.BytesIO()
     doc.save(buffer)
