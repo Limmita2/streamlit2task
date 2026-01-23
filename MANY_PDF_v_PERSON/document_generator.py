@@ -212,7 +212,8 @@ def generate_docx(data: dict, photo_bytes: bytes = None) -> bytes:
             for i, p_text in enumerate(paragraphs_list):
                 if p_text.strip():
                     # Применяем выравнивание по центру для всех блоков кроме "Початок документа"
-                    pat = r'(місце\s*проживання\s*:|' + BOLD_PATTERN[1:] if header == "Адреса" else BOLD_PATTERN
+                    pat = (r'(№\s+\d{24}\s+від\s+\d{2}\.\d{2}\.\d{4}\s*,\s*за\s*СТ\.|' + BOLD_PATTERN[1:] if header == "ЄРДР" else 
+                           r'(місце\s*проживання\s*:|' + BOLD_PATTERN[1:] if header == "Адреса" else BOLD_PATTERN)
                     p_c = add_bulleted_content(doc, p_text.strip(), alignment=WD_ALIGN_PARAGRAPH.JUSTIFY, pattern=pat)
     
     buffer = io.BytesIO()
