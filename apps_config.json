@@ -20,9 +20,7 @@
     {
         "name": "DMS v WORD",
         "description": "обробка ДМС файлів у форматі WORD",
-        "page_file": "DMS_v_WORD/streamlit_app.py",
+        "page_file": "pages/4_DMS_WORD_Application.py",
         "icon": "🪪"
     }
-
 ]
-
