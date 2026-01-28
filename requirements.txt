@@ -12,3 +12,7 @@ pytesseract
 Pillow
 streamlit-sortables
 streamlit-pdf-viewer
+pymupdf
+beautifulsoup4
+lxml
+requests
