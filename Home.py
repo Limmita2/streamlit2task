@@ -51,7 +51,12 @@ def main():
             # Using st.page_link (Requires Streamlit 1.31+)
             page_path = app['page_file']
             if os.path.exists(page_path):
-                 st.page_link(page_path, label="Открыть", icon="🚀")
+                # Check if the page is in the pages directory (for standard Streamlit navigation)
+                if page_path.startswith("pages/") and page_path.endswith(".py"):
+                    st.page_link(page_path, label="Открыть", icon="🚀")
+                else:
+                    # For apps outside the pages directory, provide an informational message
+                    st.info(f"Внешнее приложение: запустите `{page_path}` отдельно")
             else:
                 st.warning(f"Файл {page_path} не найден")
 
