@@ -1,14 +1,27 @@
-import streamlit as st
+import sys
+import os
 from pathlib import Path
 
-st.title("DMS v WORD")
-st.info("Приложение DMS v WORD запускается отдельно.")
+# --- PATH SETUP ---
+# Get the root directory (parent of 'pages')
+current_dir = os.path.dirname(os.path.abspath(__file__))
+root_dir = os.path.dirname(current_dir)
+app_dir = os.path.join(root_dir, "DMS_v_WORD")
 
-st.write("Для запуска приложения откройте терминал и выполните команду:")
-st.code("cd DMS_v_WORD && streamlit run streamlit_app.py", language="bash")
+# Add to sys.path to allow imports
+if app_dir not in sys.path:
+    sys.path.append(app_dir)
+if root_dir not in sys.path:
+    sys.path.append(root_dir)
 
-st.write("После запуска приложение будет доступно по адресу: http://localhost:8501")
-
-# Add a button to go back to the main page
-if st.button("🏠 Вернуться на главную"):
-    st.switch_page("Home.py")
+# Import and run the DMS application
+try:
+    import DMS_v_WORD.streamlit_app  # This will run the app since it has direct Streamlit calls
+    
+except Exception as e:
+    import streamlit as st
+    st.error(f"Ошибка при запуске приложения DMS: {e}")
+    # Print stack trace for debugging
+    import traceback
+    st.code(traceback.format_exc())
+    st.info(f"App dir: {app_dir}")
