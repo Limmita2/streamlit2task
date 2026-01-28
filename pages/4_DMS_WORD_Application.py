@@ -36,11 +36,30 @@ if not dependencies_available:
         st.switch_page("Home.py")
 else:
     # Import and run the DMS application
+    import streamlit as st
+    
+    # Temporarily override set_page_config to prevent conflicts
+    original_set_page_config = st.set_page_config
+    st.set_page_config = lambda *args, **kwargs: None
+    
     try:
-        import DMS_v_WORD.streamlit_app  # This will run the app since it has direct Streamlit calls
+        # Change to the app directory to ensure relative paths work correctly
+        original_cwd = os.getcwd()
+        os.chdir(app_dir)
+        
+        # Execute the DMS app file directly to run its Streamlit components
+        with open("streamlit_app.py", "r", encoding="utf-8") as f:
+            code = f.read()
+            # Execute the code in the current namespace to run the Streamlit elements
+            exec(code, globals())
+        
+        # Restore original working directory
+        os.chdir(original_cwd)
         
     except Exception as e:
-        import streamlit as st
+        # Restore original function in case of error
+        st.set_page_config = original_set_page_config
+        os.chdir(original_cwd)  # Make sure to restore CWD even if there's an error
         st.error(f"Ошибка при запуске приложения DMS: {e}")
         # Print stack trace for debugging
         import traceback
