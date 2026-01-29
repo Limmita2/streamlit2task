@@ -7,7 +7,7 @@
     },
     {
         "name": "BM DOCX Viewer",
-        "description": "Обробка архивів з БМ",
+        "description": "Обробка архивів з БМ у форматі DOCX",
         "page_file": "pages/2_BM_DOCX_Viewer.py",
         "icon": "📄"
     },
