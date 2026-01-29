@@ -24,7 +24,7 @@
         "icon": "🪪"
     },
     {
-        "name": "ARKAN_v_DOCX",
+        "name": "ARKAN v DOCX",
         "description": "Обробка Аркан у формат WORD",
         "page_file": "pages/ARKAN_v_DOCX.py",
         "icon": "🌅"
