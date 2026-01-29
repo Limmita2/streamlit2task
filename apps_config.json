@@ -22,5 +22,11 @@
         "description": "Обробка ДМС файлів у формат WORD",
         "page_file": "pages/4_DMS_WORD_Application.py",
         "icon": "🪪"
+    },
+    {
+        "name": "ARKAN_v_DOCX",
+        "description": "Обробка Аркан у формат WORD",
+        "page_file": "pages/ARKAN_v_DOCX.py",
+        "icon": "🌅"
     }
 ]
