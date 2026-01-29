@@ -55,42 +55,6 @@ def main():
             else:
                 st.warning(f"Файл {page_path} не найден")
 
-    st.markdown("---")
-    st.markdown("---")
-    with st.expander("➕ Добавить новое приложение"):
-        with st.form("add_app_form"):
-            new_name = st.text_input("Название приложения")
-            new_desc = st.text_area("Описание")
-            new_icon = st.text_input("Иконка (emoji)", value="📱")
-            new_file = st.text_input("Путь к файлу (например: pages/MyApp.py)")
-            password = st.text_input("Пароль администратора", type="password")
-            
-            submitted = st.form_submit_button("Добавить")
-            if submitted:
-                if password != "ke050442":
-                    st.error("Неверный пароль администратора!")
-                    st.stop()
-                
-                if new_name and new_file:
-                    new_app = {
-                        "name": new_name,
-                        "description": new_desc,
-                        "page_file": new_file,
-                        "icon": new_icon
-                    }
-                    apps.append(new_app)
-                    try:
-                        # Use absolute path to save apps_config.json
-                        current_dir = os.path.dirname(os.path.abspath(__file__))
-                        config_path = os.path.join(current_dir, "apps_config.json")
-                        
-                        with open(config_path, "w", encoding="utf-8") as f:
-                            json.dump(apps, f, ensure_ascii=False, indent=4)
-                        st.success("Приложение добавлено! Обновите страницу.")
-                    except Exception as e:
-                        st.error(f"Ошибка сохранения: {e}")
-                else:
-                    st.error("Название и путь к файлу обязательны.")
 
 if __name__ == "__main__":
     main()
