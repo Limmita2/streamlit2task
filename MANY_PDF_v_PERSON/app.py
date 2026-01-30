@@ -423,25 +423,12 @@ def main():
                             if 'photo_data' in st.session_state:
                                 photo_bytes = base64.b64decode(st.session_state['photo_data'])
                             
-                            # Формируем имя файла из первого слова в блоке "Початок доку"
-                            filename = "Dossier.docx"  # имя по умолчанию
-
-                            for item in ordered_content:
-                                if item.get("header") == "Початок доку" or item.get("header") == "Початок документа":
-                                    content = item.get("content", "")
-                                    if content:
-                                        # Извлекаем первое слово из содержимого
-                                        first_word = content.split()[0] if content.split() else "Dossier"
-                                        # Очищаем от специальных символов для имени файла
-                                        import re
-                                        clean_first_word = re.sub(r'[^\w\u0400-\u04FF]', '_', first_word)
-                                        filename = f"{clean_first_word}.docx"
-                                    break
-
                             docx_data = generate_docx(
                                 {"Контент": ordered_content},
                                 photo_bytes=photo_bytes
                             )
+                            
+                            filename = "Dossier.docx"
                             
                             st.download_button(
                                 label="💾 Зберегти DOCX",
