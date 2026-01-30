@@ -374,8 +374,32 @@ def main():
             """, unsafe_allow_html=True)
 
             # 1. Сортування (показуємо компактні "ручки" для перетягування)
-            sort_items_list = []
+            # Сортируем элементы по заданному порядку: "Початок документа", "Адреса", потом по алфавиту
+            sorted_selected_content = []
+
+            # Сначала добавляем "Початок документа", если он есть
             for i, item in enumerate(selected_content):
+                if item.get('header') == "Початок документа":
+                    sorted_selected_content.append(selected_content[i])
+
+            # Затем добавляем "Адреса", если он есть
+            for i, item in enumerate(selected_content):
+                if item.get('header') == "Адреса":
+                    sorted_selected_content.append(selected_content[i])
+
+            # Затем добавляем остальные элементы по алфавиту
+            other_items = []
+            for item in selected_content:
+                if item.get('header') not in ["Початок документа", "Адреса"]:
+                    other_items.append(item)
+
+            # Сортируем остальные элементы по заголовку
+            other_items.sort(key=lambda x: x.get('header', '').lower())
+            sorted_selected_content.extend(other_items)
+
+            # Создаем список для сортировки с сохранением ID
+            sort_items_list = []
+            for i, item in enumerate(sorted_selected_content):
                 display_label = f"[ID:{i}] "
                 if item.get('header'):
                     display_label += f"【{item['header']}】 "
@@ -393,11 +417,11 @@ def main():
                         match = re.search(r'\[ID:(\d+)\]', label)
                         if match:
                             idx = int(match.group(1))
-                            ordered_content.append(selected_content[idx])
+                            ordered_content.append(sorted_selected_content[idx])
                     except:
                         continue
             else:
-                ordered_content = selected_content
+                ordered_content = sorted_selected_content
 
             # 3. Редагування контенту (ВИДАЛЕНО ЗА ЗАПИТОМ)
             # st.markdown("### ✏️ Редагування вмісту")
