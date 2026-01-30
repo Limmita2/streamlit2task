@@ -20,19 +20,38 @@ from datetime import datetime
 import re
 
 
+def get_filename_from_intro(data: dict) -> str:
+    """
+    Извлекает первое слово из блока 'Початок документа' для формирования имени файла.
+    """
+    content_list = data.get("Контент", [])
+
+    for item in content_list:
+        if item.get("header") == "Початок документа":
+            content = item.get("content", "")
+            # Извлекаем первое слово из контента
+            first_word = content.split()[0] if content.split() else "Dossier"
+            # Убираем специальные символы из имени файла
+            import re
+            first_word = re.sub(r'[^\w\s-]', '', first_word)
+            return f"{first_word}.docx"
+
+    return "Dossier.docx"
+
+
 def generate_docx(data: dict, photo_bytes: bytes = None) -> bytes:
     """
     Генерує документ Word з вибраних абзаців.
     """
     doc = Document()
-    
+
     # Налаштування полів сторінки
     section = doc.sections[0]
     section.top_margin = Cm(2)
     section.bottom_margin = Cm(2)
     section.left_margin = Cm(3)
     section.right_margin = Cm(1.5)
-    
+
     # Налаштування стилів
     style = doc.styles['Normal']
     font = style.font
@@ -41,7 +60,7 @@ def generate_docx(data: dict, photo_bytes: bytes = None) -> bytes:
 
 
     BOLD_PATTERN = r'(Mарка\s*:|заявник\s*:|Марка\s*:|свідок\s*\(учасник\)\s*:|ухилянт\s*:|Вид\s*:|правопорушник\s*:|Номер\s*дозволу\s*:|телефони\s*:|[МM][іi][сc]ц[еe]\s*[нH][аa][рp][оo]дж[еe][нH]{2}я\s*:|Громадянство\s*:|постраждалий\s*\(потерпілий\)\s*:|категорія\s*:|№\s+[А-ЯІЇ]{2,4}\s+\d+(?:\s+[А-ЯІЇ]{2}\s+\d+)?\s+від\s+\d{2}\.\d{2}\.\d{4}\s+\d{2}:\d{2}:\d{2}\s*,\s*орган:)'
-    
+
     INTRO_PATTERN = r'(Місце\s*народження\s*:|Громадянство\s*:)'
 
 
@@ -50,11 +69,11 @@ def generate_docx(data: dict, photo_bytes: bytes = None) -> bytes:
         if pattern:
             parts = re.split(pattern, text)
             current_p = None
-            
+
             for part in parts:
                 if not part:
                     continue
-                
+
                 # Проверяем, является ли часть ключевым словом
                 if re.fullmatch(pattern, part):
                     # Если часть совпадает с исключаемым паттерном, не делаем её жирной
@@ -62,7 +81,7 @@ def generate_docx(data: dict, photo_bytes: bytes = None) -> bytes:
                         is_bold = False
                     else:
                         is_bold = bold_matches
-                    
+
                     # Начинаем новый абзац (маркированный или обычный)
                     style = 'List Bullet' if use_bullet_style else None
                     current_p = container.add_paragraph(style=style)
@@ -70,7 +89,7 @@ def generate_docx(data: dict, photo_bytes: bytes = None) -> bytes:
                     current_p.paragraph_format.space_after = Pt(2)
                     if alignment is not None:
                         current_p.alignment = alignment
-                    
+
                     run = current_p.add_run(part)
                     run.bold = is_bold
                     run.font.name = 'Times New Roman'
@@ -83,7 +102,7 @@ def generate_docx(data: dict, photo_bytes: bytes = None) -> bytes:
                         current_p.paragraph_format.space_after = Pt(2)
                         if alignment is not None:
                             current_p.alignment = alignment
-                    
+
                     run = current_p.add_run(part)
                     run.bold = bold_content
                     run.font.name = 'Times New Roman'
@@ -99,7 +118,7 @@ def generate_docx(data: dict, photo_bytes: bytes = None) -> bytes:
             run.bold = bold_content
             run.font.name = 'Times New Roman'
             run.font.size = Pt(14)
-    
+
     # Додаємо заголовки над блоком "АНАЛІТИЧНЕ ДОСЬЄ НА ОСОБУ"
     p_analitic_profile = doc.add_paragraph()
     p_analitic_profile.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -175,11 +194,11 @@ def generate_docx(data: dict, photo_bytes: bytes = None) -> bytes:
             intro_text = item.get("content", "")
         else:
             filtered_content.append(item)
-    
+
     # Створюємо таблицю для розміщення фото та вступного тексту
     table = doc.add_table(rows=1, cols=2)
     table.autofit = False
-    
+
     # Додаємо фото в ліву клітинку
     left_cell = table.rows[0].cells[0]
     if photo_bytes:
@@ -190,28 +209,28 @@ def generate_docx(data: dict, photo_bytes: bytes = None) -> bytes:
         paragraph = left_cell.paragraphs[0]
         run = paragraph.add_run()
         run.add_picture('default_avatar.png', width=Inches(1.8))
-    
+
     # Встановлюємо ширину колонок через клітинки
     left_cell.width = Inches(2.0)
     right_cell = table.rows[0].cells[1]
     right_cell.width = Inches(4.5)
     right_cell.vertical_alignment = 1
-    
-    
+
+
     # Використовуємо універсальну функцію форматування для всього тексту в клітинці
     if intro_text:
         # Видаляємо порожній параграф, який створюється автоматично
         if len(right_cell.paragraphs) > 0 and not right_cell.paragraphs[0].text.strip():
              p = right_cell.paragraphs[0]
              p._element.getparent().remove(p._element)
-             
+
         # Очищаем текст от "д.н."
         intro_text = intro_text.replace("д.н.", "").replace("  ", " ")
-        
+
         # Инвертированное жирное выделение для первого блока:
         # Ключевые слова (bold_matches=False) - обычные
         # Контент (bold_content=True) - жирный
-        add_bulleted_content(right_cell, intro_text, alignment=WD_ALIGN_PARAGRAPH.LEFT, 
+        add_bulleted_content(right_cell, intro_text, alignment=WD_ALIGN_PARAGRAPH.LEFT,
                              use_bullet_style=False, bold_matches=True, bold_content=True, pattern=BOLD_PATTERN, exclude_pattern=INTRO_PATTERN)
     else:
         title_paragraph = right_cell.paragraphs[0]
@@ -220,8 +239,8 @@ def generate_docx(data: dict, photo_bytes: bytes = None) -> bytes:
         title_run.font.size = Pt(14)
         title_run.font.bold = True
         title_run.font.color.rgb = RGBColor(0, 0, 0)
-    
-    
+
+
 
 
     # Добавляем контент (вже відфільтрований без вступу)

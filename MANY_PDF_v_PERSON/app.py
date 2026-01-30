@@ -87,50 +87,50 @@ def main():
     # Заголовок
     st.title("📄 Генератор особистого досьє з PDF")
     st.markdown("---")
-    
+
     # Основна область
     # Секція завантаження файлів
     st.header("1️⃣ Завантаження PDF файлів")
-    
+
     uploaded_files = st.file_uploader(
         "Виберіть PDF файли для обробки",
         type=['pdf'],
         accept_multiple_files=True,
         help="Можна завантажити кілька файлів одночасно"
     )
-    
+
     if uploaded_files:
         st.success(f"✅ Завантажено файлів: {len(uploaded_files)}")
-        
+
         # Показуємо список завантажених файлів
         with st.expander("📋 Список завантажених файлів"):
             for i, file in enumerate(uploaded_files, 1):
                 st.write(f"{i}. {file.name} ({file.size / 1024:.2f} KB)")
-        
+
         # Кнопка обробки
         if st.button("🔄 Обробити PDF файли", type="primary"):
             with st.spinner("Обробка PDF файлів..."):
                 all_paragraphs = process_pdfs_to_paragraphs(uploaded_files)
-                
+
                 # Зберігаємо в session_state
                 st.session_state['all_paragraphs'] = all_paragraphs
                 st.session_state['processing_done'] = True
                 # Скидаємо вибір при новій обробці
                 if 'selections' in st.session_state:
                     del st.session_state['selections']
-                
+
                 st.success("✅ Обробка завершена!")
-    
+
     # Секция 2: Выбор и Секция 3: Фото
     if 'processing_done' in st.session_state and st.session_state['processing_done']:
         st.markdown("---")
         st.header("2️⃣ Выбор информации из файлов")
-        
+
         all_paragraphs_dict = st.session_state['all_paragraphs']
-        
+
         if 'selections' not in st.session_state:
             st.session_state['selections'] = {}
-            
+
         selected_content = []
 
         # --- Разделенный экран: Текст (слева) и PDF (справа) ---
@@ -147,22 +147,22 @@ def main():
 
         with col_left:
             st.markdown("#### 📝 Выбор блоков")
-            
+
             if active_file not in st.session_state['selections']:
                 st.session_state['selections'][active_file] = [True] * len(paragraphs)
-            
+
             with st.container():
                 for i, block in enumerate(paragraphs):
                     header = block.get("header", "")
                     content = block.get("content", "")
                     key = f"cb_{active_file}_{i}"
-                    
+
                     display_header = f"**{header}**" if header else f"Блок {i+1}"
                     is_selected = st.checkbox(display_header, value=st.session_state['selections'][active_file][i], key=key)
-                    
+
                     if content:
                         st.caption(content)
-                    
+
                     st.session_state['selections'][active_file][i] = is_selected
 
         with col_right:
@@ -189,21 +189,21 @@ def main():
     # ПЕРЕНЕСЕНО СЮДИ: Секція завантаження фото (завжди доступна після вибору файлів або відразу)
     st.markdown("---")
     st.header("3️⃣ Налаштування фото")
-    
+
     col1, col2 = st.columns([1, 1])
-    
+
     with col1:
         if 'last_processed_paste' not in st.session_state:
             st.session_state['last_processed_paste'] = ""
-            
+
         uploaded_photo = st.file_uploader(
             "Завантажте фото або скопіюйте картинку (Ctrl+V)",
             type=['png', 'jpg', 'jpeg'],
             key="photo_uploader"
         )
-        
+
         paste_placeholder = "ОЧІКУВАННЯ_ВСТАВКИ_ЗОБРАЖЕННЯ"
-        
+
         # Ховаємо поле Брідж через CSS
         st.markdown(f"""
             <style>
@@ -225,7 +225,7 @@ def main():
             placeholder=paste_placeholder,
             label_visibility="collapsed"
         )
-        
+
         # 1. ОБРОБКА ВСТАВКИ (якщо дані нові)
         if paste_result and paste_result != st.session_state['last_processed_paste']:
             try:
@@ -234,12 +234,12 @@ def main():
                 img_data = paste_result.split(",")[1]
                 img_bytes = base64.b64decode(img_data)
                 img = Image.open(BytesIO(img_bytes))
-                
+
                 # Конвертуємо зображення назад у base64 для зберігання в session_state
                 buffered = BytesIO()
                 img.save(buffered, format="PNG")
                 img_base64 = base64.b64encode(buffered.getvalue()).decode()
-                
+
                 st.session_state['photo_data'] = img_base64
                 st.session_state['last_processed_paste'] = paste_result
                 # st.rerun()  # Убираем rerun, чтобы избежать циклов
@@ -252,20 +252,20 @@ def main():
             file_id = f"{uploaded_photo.name}_{uploaded_photo.size}"
             if st.session_state.get('last_uploaded_id') != file_id:
                 img = Image.open(uploaded_photo)
-                
+
                 # Конвертуємо зображення у base64 для зберігання в session_state
                 buffered = BytesIO()
                 img.save(buffered, format="PNG")
                 img_base64 = base64.b64encode(buffered.getvalue()).decode()
-                
+
                 st.session_state['photo_data'] = img_base64
                 st.session_state['last_uploaded_id'] = file_id
                 # st.rerun()  # Убираем rerun, чтобы избежать циклов
-        
+
         import streamlit.components.v1 as components
-        
+
         components.html(f"""
-            <div id="p-zone" contenteditable="true" 
+            <div id="p-zone" contenteditable="true"
                  style="border: 4px dashed #0051a8; padding: 40px; border-radius: 15px; text-align: center; background-color: #f8faff; cursor: pointer; height: 120px; outline: none; transition: all 0.3s;"
                  onclick="this.focus(); document.getElementById('s-msg').innerText='⚡ ГОТОВИЙ ДО ВСТАВКИ (Ctrl+V)';"
                  onblur="document.getElementById('s-msg').innerText='КЛАТЦНІТЬ СЮДИ ТА ТИСНІТЬ Ctrl+V';">
@@ -281,7 +281,7 @@ def main():
             zone.addEventListener('paste', (e) => {{
                 e.preventDefault();
                 e.stopPropagation();
-                
+
                 const items = (e.clipboardData || e.originalEvent.clipboardData).items;
                 let found = false;
 
@@ -297,23 +297,23 @@ def main():
                             try {{
                                 const root = window.parent.document;
                                 const ta = root.querySelector('textarea[placeholder="{paste_placeholder}"]');
-                                
+
                                 if (ta) {{
                                     // ТРЮК ДЛЯ REACT: використовуємо Native Value Setter
                                     // Також додаємо примусове перемикання фокусу для синхронізації
                                     ta.focus();
                                     const nativeValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
                                     nativeValueSetter.call(ta, event.target.result);
-                                    
+
                                     // Події для Streamlit
                                     ta.dispatchEvent(new Event('input', {{ bubbles: true }}));
                                     ta.dispatchEvent(new Event('change', {{ bubbles: true }}));
-                                    
+
                                     // Перекидаємо фокус на будь-яку кнопку, щоб викликати blur на textarea
                                     const btn = root.querySelector('button');
                                     if (btn) btn.focus();
                                     ta.blur();
-                                    
+
                                     msg.innerText = "✅ ГОТОВО! ОНОВЛЕННЯ...";
                                     zone.style.backgroundColor = "#d4edda";
                                 }} else {{
@@ -329,7 +329,7 @@ def main():
                         break;
                     }}
                 }}
-                
+
                 if (!found) {{
                     msg.innerText = "🤔 В БУФЕРІ НЕМАЄ КАРТИНКИ";
                     zone.style.backgroundColor = "#ffecb3";
@@ -341,7 +341,7 @@ def main():
             }});
             </script>
         """, height=220)
-    
+
     with col2:
         if 'photo_data' in st.session_state:
             img_bytes = base64.b64decode(st.session_state['photo_data'])
@@ -352,13 +352,13 @@ def main():
 
     # Повертаємо логіку Секції 5 (якщо є вибраний контент)
     if 'processing_done' in st.session_state and st.session_state['processing_done']:
-        
+
         # Секция сортування
         if selected_content:
             st.markdown("---")
             st.header("5️⃣ Збірка та порядок досьє")
             st.info("💡 1. Перетягніть блоки для зміни порядку. 2. Відредагуйте текст прямо в полях нижче.")
-            
+
             if 'edited_texts' not in st.session_state:
                 st.session_state['edited_texts'] = {}
 
@@ -372,7 +372,7 @@ def main():
                 }
                 </style>
             """, unsafe_allow_html=True)
-            
+
             # 1. Сортування (показуємо компактні "ручки" для перетягування)
             sort_items_list = []
             for i, item in enumerate(selected_content):
@@ -381,9 +381,9 @@ def main():
                     display_label += f"【{item['header']}】 "
                 content_preview = item.get('content', '')[:50] + "..."
                 sort_items_list.append(display_label + content_preview)
-            
+
             sorted_labels = sort_items(sort_items_list, direction="vertical")
-            
+
             # 2. Визначення впорядкованого списку
             ordered_content = []
             if sorted_labels:
@@ -409,12 +409,12 @@ def main():
         # Секція експорту
         st.markdown("---")
         st.header("6️⃣ Експорт досьє")
-        
+
         if not ordered_content:
             st.info("Виберіть хоча б один блок для формування досьє")
         else:
             col1, col2 = st.columns(2)
-            
+
             with col1:
                 if st.button("📥 Завантажити DOCX", type="primary"):
                     with st.spinner("Генерація DOCX..."):
@@ -422,14 +422,16 @@ def main():
                             photo_bytes = None
                             if 'photo_data' in st.session_state:
                                 photo_bytes = base64.b64decode(st.session_state['photo_data'])
-                            
+
                             docx_data = generate_docx(
                                 {"Контент": ordered_content},
                                 photo_bytes=photo_bytes
                             )
-                            
-                            filename = "Dossier.docx"
-                            
+
+                            # Получаем имя файла из блока "Початок документа"
+                            from document_generator import get_filename_from_intro
+                            filename = get_filename_from_intro({"Контент": ordered_content})
+
                             st.download_button(
                                 label="💾 Зберегти DOCX",
                                 data=docx_data,
@@ -438,8 +440,8 @@ def main():
                             )
                         except Exception as e:
                             st.error(f"❌ Помилка: {e}")
-            
-    
+
+
             # Кнопка для повного очищення
             st.markdown("---")
             if st.button("🧹 Завершити та очистити все", help="Це видалить усі тимчасові фото та скине вибір"):
@@ -465,5 +467,5 @@ if __name__ == "__main__":
     # Перевіряємо наявність default_avatar.png
     if not os.path.exists('default_avatar.png'):
         st.warning("⚠️ Файл default_avatar.png не знайдено. Створіть його або завантажте власне фото.")
-    
+
     main()
