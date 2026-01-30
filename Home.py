@@ -18,10 +18,22 @@ st.set_page_config(
     layout="wide"
 )
 
+# Убираем max-width для stMainBlockContainer
+st.markdown(
+    """
+    <style>
+    .stMainBlockContainer {
+        max-width: none;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 def load_apps_config():
     # Now that CWD is forced, simple path should work, but absolute is still safer for reading
     config_path = os.path.join(script_dir, "apps_config.json")
-    
+
     if not os.path.exists(config_path):
         st.error(f"Файл конфигурации {config_path} не найден. CWD: {os.getcwd()}")
         return []
@@ -40,12 +52,12 @@ def main():
 
     # Use columns to display apps in a grid
     cols = st.columns(3)
-    
+
     for idx, app in enumerate(apps):
         with cols[idx % 3]:
             st.info(f"### {app.get('icon', '📱')} {app['name']}")
             st.write(app['description'])
-            
+
             # Streamlit page links work best in sidebar, but for buttons we can use page_link if on newer streamlit
             # Or just instruct user to use sidebar.
             # Using st.page_link (Requires Streamlit 1.31+)

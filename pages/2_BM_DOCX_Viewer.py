@@ -4,6 +4,9 @@ import base64
 
 st.set_page_config(page_title="BM DOCX Viewer", page_icon="📄", layout="wide")
 
+from utils import remove_max_width
+remove_max_width()
+
 def get_base64_image(image_path):
     if not os.path.exists(image_path):
         return None
@@ -18,7 +21,7 @@ def main():
     root_dir = os.path.dirname(current_dir)
     bm_dir = os.path.join(root_dir, "BM_v_DOCX")
     html_path = os.path.join(bm_dir, "index.html")
-    
+
     if not os.path.exists(html_path):
         st.error(f"HTML файл не найден: {html_path}")
         return
@@ -31,7 +34,7 @@ def main():
     # <img src="./images/photo_2025-09-22_22-10-14-Photoroom.png"
     img_rel_path = "images/photo_2025-09-22_22-10-14-Photoroom.png"
     img_abs_path = os.path.join(bm_dir, img_rel_path)
-    
+
     b64_img = get_base64_image(img_abs_path)
     if b64_img:
         # Determine mime type (png based on filename)

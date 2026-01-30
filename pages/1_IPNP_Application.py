@@ -18,10 +18,13 @@ if root_dir not in sys.path:
 # Set config HERE because we removed it from the global scope of the imported app
 st.set_page_config(page_title="IPNP Application", page_icon="📝", layout="wide")
 
+from utils import remove_max_width
+remove_max_width()
+
 # --- IMPORT & RUN ---
 try:
     import IPNP_v_HTML.app as ipnp_app
-    
+
     # Run the main function if it exists
     if hasattr(ipnp_app, 'main'):
         ipnp_app.main()

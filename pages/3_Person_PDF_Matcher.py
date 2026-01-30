@@ -19,13 +19,16 @@ if root_dir not in sys.path:
 # Set config explicitly here
 st.set_page_config(page_title="Генератор досьє з PDF", page_icon="📄", layout="wide")
 
+from utils import remove_max_width
+remove_max_width()
+
 # --- IMPORT & RUN ---
 try:
     # Change working directory to app dir so it can find 'default_avatar.png' etc.
     os.chdir(app_dir)
-    
+
     import MANY_PDF_v_PERSON.app as person_app
-    
+
     # Run the main function
     if hasattr(person_app, 'main'):
         person_app.main()
