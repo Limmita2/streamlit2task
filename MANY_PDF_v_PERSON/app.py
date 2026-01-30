@@ -357,7 +357,7 @@ def main():
         if selected_content:
             st.markdown("---")
             st.header("5️⃣ Збірка та порядок досьє")
-            st.info("💡 1. Перетягніть блоки для зміни порядку. 2. Відредагуйте текст прямо в полях нижче.")
+            st.info("💡 1. Перетягніть блоки для зміни порядку. 2. Відредагуйте текст прямо в полях нижче. 3. Натисніть ✖️ для видалення блоку.")
 
             if 'edited_texts' not in st.session_state:
                 st.session_state['edited_texts'] = {}
@@ -397,31 +397,63 @@ def main():
             other_items.sort(key=lambda x: x.get('header', '').lower())
             sorted_selected_content.extend(other_items)
 
-            # Создаем список для сортировки с сохранением ID
-            sort_items_list = []
-            for i, item in enumerate(sorted_selected_content):
-                display_label = f"[ID:{i}] "
-                if item.get('header'):
-                    display_label += f"【{item['header']}】 "
-                content_preview = item.get('content', '')[:50] + "..."
-                sort_items_list.append(display_label + content_preview)
+            # Добавляем возможность удаления блоков
+            if 'deleted_blocks' not in st.session_state:
+                st.session_state['deleted_blocks'] = set()
 
-            sorted_labels = sort_items(sort_items_list, direction="vertical")
+            # Отображаем каждый блок с крестиком для удаления
+            for i, item in enumerate(sorted_selected_content):
+                if i not in st.session_state['deleted_blocks']:
+                    col1, col2 = st.columns([10, 1])
+                    with col1:
+                        # Показываем информацию о блоке
+                        block_info = f"[ID:{i}] "
+                        if item.get('header'):
+                            block_info += f"【{item['header']}】 "
+                        content_preview = item.get('content', '')[:50] + "..."
+                        st.write(block_info + content_preview)
+                    with col2:
+                        # Кнопка удаления
+                        if st.button("✖️", key=f"delete_{i}", help="Видалити цей блок"):
+                            st.session_state['deleted_blocks'].add(i)
+                            st.rerun()
+
+            # Создаем список для сортировки с учетом удаленных блоков
+            # Создаем список оставшихся элементов с индексами
+            remaining_items = []
+            for i, item in enumerate(sorted_selected_content):
+                if i not in st.session_state['deleted_blocks']:
+                    display_label = f"[ID:{i}] "
+                    if item.get('header'):
+                        display_label += f"【{item['header']}】 "
+                    content_preview = item.get('content', '')[:50] + "..."
+                    remaining_items.append({
+                        'index': i,
+                        'item': item,
+                        'label': display_label + content_preview
+                    })
+
+            # Применяем сортировку только к оставшимся блокам
+            if remaining_items:
+                # Извлекаем только метки для передачи в sort_items
+                labels_only = [item_info['label'] for item_info in remaining_items]
+                sorted_labels = sort_items(labels_only, direction="vertical")
+            else:
+                sorted_labels = []
 
             # 2. Визначення впорядкованого списку
             ordered_content = []
-            if sorted_labels:
+            if sorted_labels and len(sorted_labels) > 0:
+                # Восстанавливаем порядок элементов на основе отсортированных меток
                 for label in sorted_labels:
-                    try:
-                        import re
-                        match = re.search(r'\[ID:(\d+)\]', label)
-                        if match:
-                            idx = int(match.group(1))
-                            ordered_content.append(sorted_selected_content[idx])
-                    except:
-                        continue
+                    # Найдем соответствующий элемент в списке оставшихся
+                    for item_info in remaining_items:
+                        if item_info['label'] == label:
+                            ordered_content.append(item_info['item'])
+                            break
             else:
-                ordered_content = sorted_selected_content
+                # Если сортировка не применялась, просто исключаем удаленные
+                ordered_content = [item for i, item in enumerate(sorted_selected_content) if i not in st.session_state['deleted_blocks']]
 
             # 3. Редагування контенту (ВИДАЛЕНО ЗА ЗАПИТОМ)
             # st.markdown("### ✏️ Редагування вмісту")
