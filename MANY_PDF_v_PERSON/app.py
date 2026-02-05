@@ -7,6 +7,7 @@ from io import BytesIO
 from pdf_processor import process_pdfs_to_paragraphs
 from document_generator import generate_docx
 from docx_to_pdf_converter import convert_docx_to_pdf, get_pdf_filename_from_docx
+from direct_pdf_creator import create_pdf_directly, get_pdf_filename_from_intro
 from PIL import Image
 from streamlit_sortables import sort_items
 from streamlit_pdf_viewer import pdf_viewer
@@ -479,6 +480,10 @@ def main():
                             photo_bytes = None
                             if 'photo_data' in st.session_state:
                                 photo_bytes = base64.b64decode(st.session_state['photo_data'])
+                            elif os.path.exists('default_avatar.png'):
+                                # Загружаем фото по умолчанию
+                                with open('default_avatar.png', 'rb') as f:
+                                    photo_bytes = f.read()
 
                             docx_data = generate_docx(
                                 {"Контент": ordered_content},
@@ -505,20 +510,19 @@ def main():
                             photo_bytes = None
                             if 'photo_data' in st.session_state:
                                 photo_bytes = base64.b64decode(st.session_state['photo_data'])
+                            elif os.path.exists('default_avatar.png'):
+                                # Загружаем фото по умолчанию
+                                with open('default_avatar.png', 'rb') as f:
+                                    photo_bytes = f.read()
 
-                            # Сначала генерируем DOCX
-                            docx_data = generate_docx(
+                            # Пробуем создать PDF напрямую из данных
+                            pdf_data = create_pdf_directly(
                                 {"Контент": ordered_content},
                                 photo_bytes=photo_bytes
                             )
 
-                            # Затем конвертируем в PDF
-                            pdf_data = convert_docx_to_pdf(docx_data)
-
-                            # Получаем имя PDF-файла из имени DOCX-файла
-                            from document_generator import get_filename_from_intro
-                            docx_filename = get_filename_from_intro({"Контент": ordered_content})
-                            pdf_filename = get_pdf_filename_from_docx(docx_filename)
+                            # Получаем имя PDF-файла
+                            pdf_filename = get_pdf_filename_from_intro({"Контент": ordered_content})
 
                             st.download_button(
                                 label="💾 Зберегти PDF",
@@ -527,7 +531,41 @@ def main():
                                 mime="application/pdf"
                             )
                         except Exception as e:
-                            st.error(f"❌ Помилка при конвертації в PDF: {e}")
+                            st.error(f"❌ Помилка при створенні PDF: {e}")
+                            # Если прямое создание не работает, используем резервный метод
+                            try:
+                                st.info("Спробуємо альтернативний метод конвертації...")
+
+                                photo_bytes = None
+                                if 'photo_data' in st.session_state:
+                                    photo_bytes = base64.b64decode(st.session_state['photo_data'])
+                                elif os.path.exists('default_avatar.png'):
+                                    # Загружаем фото по умолчанию
+                                    with open('default_avatar.png', 'rb') as f:
+                                        photo_bytes = f.read()
+
+                                # Сначала генерируем DOCX
+                                docx_data = generate_docx(
+                                    {"Контент": ordered_content},
+                                    photo_bytes=photo_bytes
+                                )
+
+                                # Затем конвертируем в PDF
+                                pdf_data = convert_docx_to_pdf(docx_data)
+
+                                # Получаем имя PDF-файла из имени DOCX-файла
+                                from document_generator import get_filename_from_intro
+                                docx_filename = get_filename_from_intro({"Контент": ordered_content})
+                                pdf_filename = get_pdf_filename_from_docx(docx_filename)
+
+                                st.download_button(
+                                    label="💾 Зберегти PDF (альтернативний метод)",
+                                    data=pdf_data,
+                                    file_name=pdf_filename,
+                                    mime="application/pdf"
+                                )
+                            except Exception as backup_e:
+                                st.error(f"❌ Помилка при альтернативній конвертації в PDF: {backup_e}")
 
 
             # Кнопка для повного очищення

@@ -50,6 +50,14 @@ def test_conversion():
     assert os.path.getsize(docx_filename) > 0, "DOCX файл пустой"
     assert os.path.getsize(pdf_filename) > 0, "PDF файл пустой"
 
+    # Проверим, что PDF содержит ожидаемые элементы
+    # (проверим, что это действительно PDF файл)
+    with open(pdf_filename, 'rb') as f:
+        pdf_header = f.read(8)
+        assert pdf_header.startswith(b'%PDF-'), "Файл не является PDF"
+
+    print("PDF файл корректно сгенерирован!")
+
     print("Тест пройден успешно!")
 
 if __name__ == "__main__":
