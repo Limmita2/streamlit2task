@@ -27,13 +27,18 @@ try:
     # Change working directory to app dir so it can find 'default_avatar.png' etc.
     os.chdir(app_dir)
 
-    import MANY_PDF_v_PERSON.app as person_app
+    # Попробуем импортировать напрямую, если находимся в подкаталоге
+    try:
+        import app as person_app
+    except ImportError:
+        # Если прямой импорт не работает, пробуем с указанием пути
+        import MANY_PDF_v_PERSON.app as person_app
 
     # Run the main function
     if hasattr(person_app, 'main'):
         person_app.main()
     else:
-        st.error("В модуле MANY_PDF_v_PERSON.app не найдена функция main().")
+        st.error("В модуле приложения не найдена функция main().")
 
 except Exception as e:
     st.error(f"Ошибка при запуске приложения: {e}")
