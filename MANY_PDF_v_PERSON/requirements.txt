@@ -6,3 +6,4 @@ pytesseract
 Pillow
 streamlit-sortables
 streamlit-pdf-viewer
+docxtopdf

@@ -6,6 +6,7 @@ import time
 from io import BytesIO
 from pdf_processor import process_pdfs_to_paragraphs
 from document_generator import generate_docx
+from docx_to_pdf_converter import convert_docx_to_pdf, get_pdf_filename_from_docx
 from PIL import Image
 from streamlit_sortables import sort_items
 from streamlit_pdf_viewer import pdf_viewer
@@ -496,6 +497,37 @@ def main():
                             )
                         except Exception as e:
                             st.error(f"❌ Помилка: {e}")
+
+            with col2:
+                if st.button("📥 Завантажити PDF", type="secondary"):
+                    with st.spinner("Генерація PDF..."):
+                        try:
+                            photo_bytes = None
+                            if 'photo_data' in st.session_state:
+                                photo_bytes = base64.b64decode(st.session_state['photo_data'])
+
+                            # Сначала генерируем DOCX
+                            docx_data = generate_docx(
+                                {"Контент": ordered_content},
+                                photo_bytes=photo_bytes
+                            )
+
+                            # Затем конвертируем в PDF
+                            pdf_data = convert_docx_to_pdf(docx_data)
+
+                            # Получаем имя PDF-файла из имени DOCX-файла
+                            from document_generator import get_filename_from_intro
+                            docx_filename = get_filename_from_intro({"Контент": ordered_content})
+                            pdf_filename = get_pdf_filename_from_docx(docx_filename)
+
+                            st.download_button(
+                                label="💾 Зберегти PDF",
+                                data=pdf_data,
+                                file_name=pdf_filename,
+                                mime="application/pdf"
+                            )
+                        except Exception as e:
+                            st.error(f"❌ Помилка при конвертації в PDF: {e}")
 
 
             # Кнопка для повного очищення

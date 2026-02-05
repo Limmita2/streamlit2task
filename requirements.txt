@@ -16,3 +16,4 @@ pymupdf
 beautifulsoup4
 lxml
 requests
+docxtopdf
