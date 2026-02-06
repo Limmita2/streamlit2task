@@ -11,6 +11,9 @@ from direct_pdf_creator import create_pdf_directly, get_pdf_filename_from_intro
 from PIL import Image
 from streamlit_sortables import sort_items
 from streamlit_pdf_viewer import pdf_viewer
+from arkan_processor import process_excel_to_data
+import dms_processor
+from dms_processor import extract_dms_data
 
 
 # Налаштування сторінки
@@ -126,7 +129,7 @@ def main():
     # Секция 2: Выбор и Секция 3: Фото
     if 'processing_done' in st.session_state and st.session_state['processing_done']:
         st.markdown("---")
-        st.header("2️⃣ Выбор информации из файлов")
+        st.header("2️⃣ Вибір інформації з файлів")
 
         all_paragraphs_dict = st.session_state['all_paragraphs']
 
@@ -464,9 +467,112 @@ def main():
         else:
             ordered_content = []
 
+        # Секція 6: Перетин кордону України
+        st.markdown("---")
+        # Секція 6: Додаткові дані (ДМС та Аркан)
+        st.markdown("---")
+        st.header("6️⃣ Документи")
+        
+        tab_dms, tab_arkan = st.tabs(["🏛️ ДМС", "🚢 Аркан"])
+        
+        with tab_dms:
+            uploaded_dms = st.file_uploader(
+                "Завантажте PDF файл (ДМС)",
+                type=['pdf'],
+                key="dms_pdf_uploader"
+            )
+            
+            if uploaded_dms:
+                if st.session_state.get('last_uploaded_dms') != uploaded_dms.name:
+                    with st.spinner("Обробка PDF ДМС..."):
+                        dms_info, photo_bytes, error = extract_dms_data(uploaded_dms)
+                        if error:
+                            st.error(error)
+                        else:
+                            st.success(f"✅ Дані з файлу {uploaded_dms.name} успішно зчитано")
+                            st.session_state['dms_data'] = {
+                                'info': dms_info,
+                                'photo_bytes': photo_bytes
+                            }
+                            st.session_state['last_uploaded_dms'] = uploaded_dms.name
+                            if photo_bytes:
+                                st.session_state['photo_data'] = base64.b64encode(photo_bytes).decode()
+            
+            if st.session_state.get('dms_data'):
+                st.info(f"📁 Використовуються дані ДМС з: {st.session_state.get('last_uploaded_dms')}")
+                if st.button("❌ Очистити дані ДМС"):
+                    st.session_state['dms_data'] = None
+                    st.session_state['last_uploaded_dms'] = None
+                    st.rerun()
+
+        with tab_arkan:
+            uploaded_excel = st.file_uploader(
+                "Завантажте Excel файл (Аркан)",
+                type=['xlsx', 'xls'],
+                key="arkan_excel_uploader"
+            )
+            
+            if uploaded_excel:
+                if st.session_state.get('last_uploaded_arkan') != uploaded_excel.name:
+                    with st.spinner("Обробка Excel файлу..."):
+                        border_data, error = process_excel_to_data(uploaded_excel)
+                        if error:
+                            st.error(error)
+                        else:
+                            st.success(f"✅ Дані з файлу {uploaded_excel.name} успішно зчитано")
+                            st.session_state['border_crossing_data'] = border_data
+                            st.session_state['last_uploaded_arkan'] = uploaded_excel.name
+            
+            if st.session_state.get('border_crossing_data'):
+                st.info(f"📁 Використовуються дані Аркан з: {st.session_state.get('last_uploaded_arkan')}")
+                if st.button("❌ Очистити дані Аркан"):
+                    st.session_state['border_crossing_data'] = None
+                    st.session_state['last_uploaded_arkan'] = None
+                    st.rerun()
+
+        # Секція 7: Родинні зв'язки
+        st.markdown("---")
+        st.header("7️⃣ Родинні зв'язки")
+        
+        relatives = ["Дружина", "Чоловік", "Син", "Донька", "Мати", "Батько", "Родич"]
+        family_tabs = st.tabs([f"👤 {r}" for r in relatives])
+        
+        if 'family_data' not in st.session_state:
+            st.session_state['family_data'] = {}
+            
+        for i, relative_type in enumerate(relatives):
+            with family_tabs[i]:
+                uploaded_family_pdf = st.file_uploader(
+                    f"Завантажте PDF ДМС ({relative_type})",
+                    type=['pdf'],
+                    key=f"family_pdf_{relative_type}"
+                )
+                
+                if uploaded_family_pdf:
+                    last_key = f"last_uploaded_family_{relative_type}"
+                    if st.session_state.get(last_key) != uploaded_family_pdf.name:
+                        with st.spinner(f"Обробка PDF {relative_type}..."):
+                            dms_info, photo_bytes, error = extract_dms_data(uploaded_family_pdf)
+                            if error:
+                                st.error(error)
+                            else:
+                                st.success(f"✅ Дані родича ({relative_type}) успішно зчитано")
+                                st.session_state['family_data'][relative_type] = {
+                                    'info': dms_info,
+                                    'photo_bytes': photo_bytes
+                                }
+                                st.session_state[last_key] = uploaded_family_pdf.name
+                
+                if relative_type in st.session_state['family_data']:
+                    st.info(f"📁 Використовуються дані: {st.session_state.get(f'last_uploaded_family_{relative_type}')}")
+                    if st.button(f"❌ Видалити ({relative_type})", key=f"clear_{relative_type}"):
+                        del st.session_state['family_data'][relative_type]
+                        st.session_state[f"last_uploaded_family_{relative_type}"] = None
+                        st.rerun()
+
         # Секція експорту
         st.markdown("---")
-        st.header("6️⃣ Експорт досьє")
+        st.header("8️⃣ Експорт досьє")
 
         if not ordered_content:
             st.info("Виберіть хоча б один блок для формування досьє")
@@ -485,9 +591,21 @@ def main():
                                 with open('default_avatar.png', 'rb') as f:
                                     photo_bytes = f.read()
 
+                            family_list = []
+                            if 'family_data' in st.session_state:
+                                for rel_type, rel_data in st.session_state['family_data'].items():
+                                    family_list.append({
+                                        'relative_type': rel_type,
+                                        'info': rel_data['info'],
+                                        'photo_bytes': rel_data['photo_bytes']
+                                    })
+
                             docx_data = generate_docx(
                                 {"Контент": ordered_content},
-                                photo_bytes=photo_bytes
+                                photo_bytes=photo_bytes,
+                                border_crossing_data=st.session_state.get('border_crossing_data'),
+                                dms_data=st.session_state.get('dms_data'),
+                                family_data=family_list
                             )
 
                             # Получаем имя файла из блока "Початок документа"
@@ -515,10 +633,22 @@ def main():
                                 with open('default_avatar.png', 'rb') as f:
                                     photo_bytes = f.read()
 
+                            family_list = []
+                            if 'family_data' in st.session_state:
+                                for rel_type, rel_data in st.session_state['family_data'].items():
+                                    family_list.append({
+                                        'relative_type': rel_type,
+                                        'info': rel_data['info'],
+                                        'photo_bytes': rel_data['photo_bytes']
+                                    })
+
                             # Пробуем создать PDF напрямую из данных
                             pdf_data = create_pdf_directly(
                                 {"Контент": ordered_content},
-                                photo_bytes=photo_bytes
+                                photo_bytes=photo_bytes,
+                                border_crossing_data=st.session_state.get('border_crossing_data'),
+                                dms_data=st.session_state.get('dms_data'),
+                                family_data=family_list
                             )
 
                             # Получаем имя PDF-файла
@@ -545,9 +675,21 @@ def main():
                                         photo_bytes = f.read()
 
                                 # Сначала генерируем DOCX
+                                family_list = []
+                                if 'family_data' in st.session_state:
+                                    for rel_type, rel_data in st.session_state['family_data'].items():
+                                        family_list.append({
+                                            'relative_type': rel_type,
+                                            'info': rel_data['info'],
+                                            'photo_bytes': rel_data['photo_bytes']
+                                        })
+
                                 docx_data = generate_docx(
                                     {"Контент": ordered_content},
-                                    photo_bytes=photo_bytes
+                                    photo_bytes=photo_bytes,
+                                    border_crossing_data=st.session_state.get('border_crossing_data'),
+                                    dms_data=st.session_state.get('dms_data'),
+                                    family_data=family_list
                                 )
 
                                 # Затем конвертируем в PDF

@@ -21,7 +21,7 @@ def format_text_with_styles(text, default_font, bold_font, italic_font, bold_ita
     return text
 
 
-def create_pdf_directly(data: dict, photo_bytes: bytes = None) -> bytes:
+def create_pdf_directly(data: dict, photo_bytes: bytes = None, border_crossing_data: list = None, dms_data: dict = None, family_data: list = None) -> bytes:
     """
     Создает PDF напрямую из данных, минуя DOCX.
 
@@ -402,6 +402,24 @@ def create_pdf_directly(data: dict, photo_bytes: bytes = None) -> bytes:
                             else:
                                 # Обычный стиль для остального текста
                                 elements.append(Paragraph(sub_part, normal_justified_style))
+
+    # Додаємо секцію про перетин кордону, якщо вона є (спрощено для прямого PDF)
+    if border_crossing_data:
+        elements.append(Spacer(1, 12))
+        elements.append(Paragraph("Перетин кордону України (ARKAN)", blue_header_style))
+        elements.append(Paragraph("Дані додано до DOCX версії документа. Для повного відображення таблиць використовуйте DOCX або альтернативний метод PDF.", normal_justified_style))
+
+    # Додаємо інформацію про ДМС, якщо вона є
+    if dms_data:
+        elements.append(Spacer(1, 12))
+        elements.append(Paragraph("ІНФОРМАЦІЯ З ДМС", blue_header_style))
+        elements.append(Paragraph("Дані ДМС додано до DOCX версії документа. Для повного відображення використовуйте DOCX або альтернативний метод PDF.", normal_justified_style))
+
+    # Додаємо інформацію про родинні зв'язки, якщо вона є
+    if family_data:
+        elements.append(Spacer(1, 12))
+        elements.append(Paragraph("РОДИННІ ЗВ'ЯЗКИ", blue_header_style))
+        elements.append(Paragraph("Дані про родинні зв'язки додано до DOCX версії документа. Для повного відображення використовуйте DOCX або альтернативний метод PDF.", normal_justified_style))
 
     # Строим PDF
     doc_template.build(elements)

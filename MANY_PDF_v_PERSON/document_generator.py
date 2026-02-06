@@ -1,8 +1,10 @@
 from docx import Document
-from docx.shared import Inches, Pt, RGBColor, Cm
+from docx.shared import Inches, Pt, RGBColor, Cm, Mm
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_PARAGRAPH_ALIGNMENT
 from docx.enum.style import WD_STYLE_TYPE
 from docx.enum.text import WD_LINE_SPACING
+from docx.oxml.ns import qn
+from docx.oxml import OxmlElement
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import inch
 from reportlab.pdfgen import canvas
@@ -14,6 +16,8 @@ from PIL import Image
 import io
 import os
 from datetime import datetime
+from arkan_processor import append_border_crossing_to_doc
+from dms_processor import append_dms_to_doc
 
 
 
@@ -39,7 +43,7 @@ def get_filename_from_intro(data: dict) -> str:
     return "Dossier.docx"
 
 
-def generate_docx(data: dict, photo_bytes: bytes = None) -> bytes:
+def generate_docx(data: dict, photo_bytes: bytes = None, border_crossing_data: list = None, dms_data: dict = None, family_data: list = None) -> bytes:
     """
     Генерує документ Word з вибраних абзаців.
     """
@@ -147,101 +151,85 @@ def generate_docx(data: dict, photo_bytes: bytes = None) -> bytes:
     empty_line_after_person.paragraph_format.line_spacing = 1.15
 
 
-    # 1. ЗАГАЛЬНИЙ ЗАГОЛОВОК ДОКУМЕНТА (Блакитна полоса)
-    t_top = doc.add_table(rows=1, cols=1)
-    t_top.width = Inches(6.5)
-    cell_top = t_top.rows[0].cells[0]
-
-
-    # Блакитний фон
-    from docx.oxml.ns import qn
-    from docx.oxml import OxmlElement
-    shd = OxmlElement('w:shd')
-    shd.set(qn('w:fill'), '9BC2E6')
-    cell_top._element.get_or_add_tcPr().append(shd)
-
-
-    p_top = cell_top.paragraphs[0]
-    p_top.alignment = WD_ALIGN_PARAGRAPH.LEFT  # Прижимаем к левому краю
-    p_top.paragraph_format.space_before = Pt(0)
-    p_top.paragraph_format.space_after = Pt(0)
-    p_top.paragraph_format.line_spacing = 1.15  # Устанавливаем межстрочный интервал 1,15
-    run_top = p_top.add_run("       " + "АНКЕТНІ ДАНІ:")  # 7 пробелов перед заголовком
-    run_top.bold = True
-    run_top.italic = True
-    run_top.font.size = Pt(14)
-
-
-    # Добавляем пустую строку после заголовка с высотой строки точно 8 пт
-    empty_line_after = doc.add_paragraph()
-    empty_line_after.paragraph_format.space_before = Pt(0)
-    empty_line_after.paragraph_format.space_after = Pt(0)
-    empty_line_after.paragraph_format.line_spacing_rule = WD_LINE_SPACING.EXACTLY
-    empty_line_after.paragraph_format.line_spacing = Pt(8)
-    # Добавляем пустой run с размером шрифта 8
-    run_empty = empty_line_after.add_run()
-    run_empty.font.size = Pt(8)
-
-
     # Шукаємо вступний текст (Початок документа)
     content_list = data.get("Контент", [])
     intro_text = ""
     filtered_content = []
 
-
     for item in content_list:
-        if item.get("header") == "Початок документа" and not intro_text:
+        header = item.get("header", "").strip()
+        if header == "Початок документа" and not intro_text:
             intro_text = item.get("content", "")
+        elif dms_data and (header == "АНКЕТНІ ДАНІ:" or header == "АНКЕТНІ ДАНІ"):
+            # Пропускаємо цей блок, бо ДМС його замінить
+            continue
         else:
             filtered_content.append(item)
 
-    # Створюємо таблицю для розміщення фото та вступного тексту
-    table = doc.add_table(rows=1, cols=2)
-    table.autofit = False
-
-    # Додаємо фото в ліву клітинку
-    left_cell = table.rows[0].cells[0]
-    if photo_bytes:
-        paragraph = left_cell.paragraphs[0]
-        run = paragraph.add_run()
-        run.add_picture(BytesIO(photo_bytes), width=Inches(1.8))
+    # Пріоритет фото для всього документа: 1. ДМС, 2. Завантажене вручну, 3. Значення за замовчуванням
+    final_photo_bytes = None
+    if dms_data and dms_data.get('photo_bytes'):
+         final_photo_bytes = dms_data['photo_bytes']
+    elif photo_bytes:
+         final_photo_bytes = photo_bytes
     elif os.path.exists('default_avatar.png'):
-        paragraph = left_cell.paragraphs[0]
-        run = paragraph.add_run()
-        run.add_picture('default_avatar.png', width=Inches(1.8))
+         with open('default_avatar.png', 'rb') as f:
+             final_photo_bytes = f.read()
 
-    # Встановлюємо ширину колонок через клітинки
-    left_cell.width = Inches(2.0)
-    right_cell = table.rows[0].cells[1]
-    right_cell.width = Inches(4.5)
-    right_cell.vertical_alignment = 1
-
-
-    # Використовуємо універсальну функцію форматування для всього тексту в клітинці
-    if intro_text:
-        # Видаляємо порожній параграф, який створюється автоматично
-        if len(right_cell.paragraphs) > 0 and not right_cell.paragraphs[0].text.strip():
-             p = right_cell.paragraphs[0]
-             p._element.getparent().remove(p._element)
-
-        # Очищаем текст от "д.н."
-        intro_text = intro_text.replace("д.н.", "").replace("  ", " ")
-
-        # Инвертированное жирное выделение для первого блока:
-        # Ключевые слова (bold_matches=False) - обычные
-        # Контент (bold_content=True) - жирный
-        add_bulleted_content(right_cell, intro_text, alignment=WD_ALIGN_PARAGRAPH.LEFT,
-                             use_bullet_style=False, bold_matches=True, bold_content=True, pattern=BOLD_PATTERN, exclude_pattern=INTRO_PATTERN)
+    # ЛОГІКА ЗАМІНИ АНКЕТНИХ ДАНИХ НА ДМС
+    if dms_data and dms_data.get('info'):
+        # Виводимо ДМС першим блоком із заголовком "ІНФОРМАЦІЯ З ДМС"
+        append_dms_to_doc(doc, dms_data['info'], photo_bytes=final_photo_bytes, header_name="ІНФОРМАЦІЯ З ДМС")
     else:
-        title_paragraph = right_cell.paragraphs[0]
-        title_paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
-        title_run = title_paragraph.add_run("Особисте досьє")
-        title_run.font.size = Pt(14)
-        title_run.font.bold = True
-        title_run.font.color.rgb = RGBColor(0, 0, 0)
+        # 1. ЗАГАЛЬНИЙ ЗАГОЛОВОК (тільки якщо немає ДМС)
+        t_top = doc.add_table(rows=1, cols=1)
+        t_top.width = Inches(6.5)
+        cell_top = t_top.rows[0].cells[0]
+        
+        shd = OxmlElement('w:shd')
+        shd.set(qn('w:fill'), '9BC2E6')
+        cell_top._element.get_or_add_tcPr().append(shd)
+        
+        p_top = cell_top.paragraphs[0]
+        p_top.alignment = WD_ALIGN_PARAGRAPH.LEFT
+        p_top.paragraph_format.space_before = Pt(0)
+        p_top.paragraph_format.space_after = Pt(0)
+        run_top = p_top.add_run("       " + "АНКЕТНІ ДАНІ:")
+        run_top.bold = True
+        run_top.italic = True
+        run_top.font.size = Pt(14)
 
+        # 2. Створюємо стандартну вступну таблицю (АНКЕТНІ ДАНІ), якщо немає ДМС
+        spacer = doc.add_paragraph()
+        spacer.paragraph_format.space_before = Mm(3)
+        spacer.paragraph_format.space_after = Mm(0)
+        spacer.paragraph_format.line_spacing = 0
 
-
+        table = doc.add_table(rows=1, cols=2)
+        table.autofit = False
+        
+        left_cell = table.rows[0].cells[0]
+        left_cell.width = Inches(2.0)
+        if final_photo_bytes:
+            paragraph = left_cell.paragraphs[0]
+            run = paragraph.add_run()
+            run.add_picture(BytesIO(final_photo_bytes), width=Inches(1.8))
+            
+        right_cell = table.rows[0].cells[1]
+        right_cell.width = Inches(4.5)
+        right_cell.vertical_alignment = 1
+        
+        if intro_text:
+            intro_text = intro_text.replace("д.н.", "").replace("  ", " ")
+            add_bulleted_content(right_cell, intro_text, alignment=WD_ALIGN_PARAGRAPH.LEFT,
+                                 use_bullet_style=False, bold_matches=True, bold_content=True, pattern=BOLD_PATTERN, exclude_pattern=INTRO_PATTERN)
+        else:
+            title_paragraph = right_cell.paragraphs[0]
+            title_paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
+            title_run = title_paragraph.add_run("Особисте досьє")
+            title_run.font.size = Pt(14)
+            title_run.font.bold = True
+            title_run.font.color.rgb = RGBColor(0, 0, 0)
 
     # Добавляем контент (вже відфільтрований без вступу)
     for item in filtered_content:
@@ -266,8 +254,6 @@ def generate_docx(data: dict, photo_bytes: bytes = None) -> bytes:
 
 
             # Налаштування блакитного фону (#9BC2E6)
-            from docx.oxml.ns import qn
-            from docx.oxml import OxmlElement
             shading_elm = OxmlElement('w:shd')
             shading_elm.set(qn('w:fill'), '9BC2E6')
             cell._element.get_or_add_tcPr().append(shading_elm)
@@ -372,6 +358,18 @@ def generate_docx(data: dict, photo_bytes: bytes = None) -> bytes:
     footer_run.font.size = Pt(12)
     footer_run.font.bold = True
 
+
+    # Додаємо родинні зв'язки (ДМС родичів), якщо вони є
+    if family_data:
+        for member in family_data:
+            # member - це словник {'relative_type': 'дружина', 'info': dms_info, 'photo_bytes': bytes}
+            header = member.get('relative_type', 'РОДИЧ').upper()
+            if member.get('info'):
+                append_dms_to_doc(doc, member['info'], photo_bytes=member.get('photo_bytes'), header_name=f"{header} (ДМС)")
+
+    # Додаємо секцію про перетин кордону, якщо вона є
+    if border_crossing_data:
+        append_border_crossing_to_doc(doc, border_crossing_data)
 
     buffer = io.BytesIO()
     doc.save(buffer)
