@@ -112,7 +112,7 @@ def extract_dms_data(pdf_file):
                               "Проспект.", "М-Н", "С-Ще", "Площа", "Просп."]
                 
                 for slovo in addr.split():
-                    if re.search('\d{5}', slovo) is not None:
+                    if re.search(r'\d{5}', slovo) is not None:
                         addr = addr.replace(slovo, '')
 
                 for ver in verification:
