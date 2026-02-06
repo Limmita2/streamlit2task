@@ -1,6 +1,5 @@
 [global]
 developmentMode = false
-dataFrameSerialization = "legacy"
 
 [server]
 headless = true
