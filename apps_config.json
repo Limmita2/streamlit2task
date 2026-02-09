@@ -30,16 +30,9 @@
         "icon": "🌅"
     },
     {
-<<<<<<< HEAD
         "name": "Нерухомість",
         "description": "Обробка файлів нерухомості у формат DOCX",
         "page_file": "pages/Real_estate_main.py",
         "icon": "🏢"
-=======
-        "name": "REAL ESTATE",
-        "description": "Обробка нерухомості",
-        "page_file": "pages/6_REAL_ESTATE.py",
-        "icon": "🏠"
->>>>>>> a1d081d55d28bdce5371332a0d9ce9e11b8d38bb
     }
 ]

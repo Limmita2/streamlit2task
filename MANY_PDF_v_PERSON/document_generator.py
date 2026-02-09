@@ -69,11 +69,12 @@ def generate_docx(data: dict, photo_bytes: bytes = None, border_crossing_data: l
     INTRO_PATTERN = r'(Місце\s*народження\s*:|Громадянство\s*:)'
 
 
-    def add_bulleted_content(container, text, alignment=None, use_bullet_style=True, bold_matches=True, bold_content=False, pattern=BOLD_PATTERN, exclude_pattern=None):
+    def add_bulleted_content(container, text, alignment=None, use_bullet_style=True, bold_matches=True, bold_content=False, pattern=BOLD_PATTERN, exclude_pattern=None, use_first_paragraph=False):
         """Разбивает текст по шаблону и создает маркированный список для ключевых слов."""
         if pattern:
             parts = re.split(pattern, text)
             current_p = None
+            part_index = 0
 
             for part in parts:
                 if not part:
@@ -89,7 +90,10 @@ def generate_docx(data: dict, photo_bytes: bytes = None, border_crossing_data: l
 
                     # Начинаем новый абзац (маркированный или обычный)
                     style = 'List Bullet' if use_bullet_style else None
-                    current_p = container.add_paragraph(style=style)
+                    if use_first_paragraph and part_index == 0 and hasattr(container, 'paragraphs') and len(container.paragraphs) > 0:
+                        current_p = container.paragraphs[0]
+                    else:
+                        current_p = container.add_paragraph(style=style)
                     current_p.paragraph_format.space_before = Pt(0)
                     current_p.paragraph_format.space_after = Pt(2)
                     if alignment is not None:
@@ -99,10 +103,14 @@ def generate_docx(data: dict, photo_bytes: bytes = None, border_crossing_data: l
                     run.bold = is_bold
                     run.font.name = 'Times New Roman'
                     run.font.size = Pt(14)
+                    part_index += 1
                 else:
                     if current_p is None:
                         # Если ключевых слов еще не было, создаем обычный абзац
-                        current_p = container.add_paragraph()
+                        if use_first_paragraph and hasattr(container, 'paragraphs') and len(container.paragraphs) > 0:
+                            current_p = container.paragraphs[0]
+                        else:
+                            current_p = container.add_paragraph()
                         current_p.paragraph_format.space_before = Pt(0)
                         current_p.paragraph_format.space_after = Pt(2)
                         if alignment is not None:
@@ -219,11 +227,15 @@ def generate_docx(data: dict, photo_bytes: bytes = None, border_crossing_data: l
         right_cell = table.rows[0].cells[1]
         right_cell.width = Inches(4.5)
         right_cell.vertical_alignment = 1
-        
+
+        # Очищаємо стандартні параграфи у правій клітинці перед додаванням контенту
+        for para in right_cell.paragraphs:
+            para.clear()
+
         if intro_text:
             intro_text = intro_text.replace("д.н.", "").replace("  ", " ")
             add_bulleted_content(right_cell, intro_text, alignment=WD_ALIGN_PARAGRAPH.LEFT,
-                                 use_bullet_style=False, bold_matches=True, bold_content=True, pattern=BOLD_PATTERN, exclude_pattern=INTRO_PATTERN)
+                                 use_bullet_style=False, bold_matches=True, bold_content=True, pattern=BOLD_PATTERN, exclude_pattern=INTRO_PATTERN, use_first_paragraph=True)
         else:
             title_paragraph = right_cell.paragraphs[0]
             title_paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
@@ -368,9 +380,102 @@ def generate_docx(data: dict, photo_bytes: bytes = None, border_crossing_data: l
     if family_data:
         for member in family_data:
             # member - це словник {'relative_type': 'дружина', 'info': dms_info, 'photo_bytes': bytes}
+            # або {'relative_type': 'дружина', 'manual_text': '...', 'photo_bytes': bytes}
             header = member.get('relative_type', 'РОДИЧ').upper()
             if member.get('info'):
                 append_dms_to_doc(doc, member['info'], photo_bytes=member.get('photo_bytes'), header_name=f"{header} (ДМС)")
+            elif member.get('manual_text'):
+                # Для вручну введених даних створюємо таблицю з фото та текстом
+                # 1. Заголовок на блакитному фоні
+                separator_table = doc.add_table(rows=1, cols=1)
+                separator_table.width = Inches(6.5)
+                separator_cell = separator_table.rows[0].cells[0]
+
+                shading_elm = OxmlElement('w:shd')
+                shading_elm.set(qn('w:fill'), '9BC2E6')
+                separator_cell._element.get_or_add_tcPr().append(shading_elm)
+
+                tcPr = separator_cell._element.get_or_add_tcPr()
+                tcBorders = OxmlElement('w:tcBorders')
+                for border in ['top', 'left', 'bottom', 'right']:
+                    b = OxmlElement(f'w:{border}')
+                    b.set(qn('w:val'), 'none')
+                    tcBorders.append(b)
+                tcPr.append(tcBorders)
+
+                p_separator = separator_cell.paragraphs[0]
+                p_separator.alignment = WD_ALIGN_PARAGRAPH.LEFT
+                p_separator.paragraph_format.space_before = Pt(0)
+                p_separator.paragraph_format.space_after = Pt(0)
+                run_separator = p_separator.add_run("       " + header)
+                run_separator.bold = True
+                run_separator.italic = True
+                run_separator.font.size = Pt(14)
+                run_separator.font.color.rgb = RGBColor(0, 0, 0)
+                run_separator.font.name = 'Times New Roman'
+
+                # 2. Таблиця з фото (зліва) та текстом (справа)
+                spacer = doc.add_paragraph()
+                spacer.paragraph_format.space_before = Mm(3)
+                spacer.paragraph_format.space_after = Mm(0)
+                spacer.paragraph_format.line_spacing = 0
+
+                table = doc.add_table(rows=1, cols=2)
+                table.autofit = False
+
+                left_cell = table.rows[0].cells[0]
+                left_cell.width = Inches(2.0)
+                photo_bytes = member.get('photo_bytes')
+                if photo_bytes:
+                    paragraph = left_cell.paragraphs[0]
+                    run = paragraph.add_run()
+                    run.add_picture(BytesIO(photo_bytes), width=Inches(1.8))
+                else:
+                    # Пробуем найти default_avatar.png в нескольких местах
+                    avatar_paths = [
+                        'default_avatar.png',
+                        'MANY_PDF_v_PERSON/default_avatar.png',
+                        os.path.join(os.path.dirname(__file__), 'default_avatar.png')
+                    ]
+                    avatar_path = None
+                    for path in avatar_paths:
+                        if os.path.exists(path):
+                            avatar_path = path
+                            break
+
+                    if avatar_path:
+                        with open(avatar_path, 'rb') as f:
+                            paragraph = left_cell.paragraphs[0]
+                            run = paragraph.add_run()
+                            run.add_picture(BytesIO(f.read()), width=Inches(1.8))
+
+                right_cell = table.rows[0].cells[1]
+                right_cell.width = Inches(4.5)
+                right_cell.vertical_alignment = 1
+
+                # Додаємо текст у праву клітинку
+                manual_text = member.get('manual_text', '')
+                if manual_text:
+                    # Розбиваємо текст на рядки та додаємо кожен як окремий абзац
+                    lines = manual_text.split('\n')
+                    for line_idx, line in enumerate(lines):
+                        if line.strip():
+                            # Для першого рядка використовуємо існуючий параграф
+                            if line_idx == 0:
+                                p = right_cell.paragraphs[0]
+                                p.clear()
+                            else:
+                                p = right_cell.add_paragraph()
+                            p.paragraph_format.space_before = Pt(0)
+                            p.paragraph_format.space_after = Pt(2)
+                            # Тільки перший рядок робимо жирним
+                            if line_idx == 0:
+                                run = p.add_run(line.strip())
+                                run.bold = True
+                            else:
+                                run = p.add_run(line.strip())
+                            run.font.name = 'Times New Roman'
+                            run.font.size = Pt(14)
 
     # Додаємо секцію про перетин кордону, якщо вона є
     if border_crossing_data:

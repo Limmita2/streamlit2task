@@ -585,42 +585,120 @@ def main():
         # Секція 7: Родинні зв'язки
         st.markdown("---")
         st.header("7️⃣ Родинні зв'язки")
-        
+
         relatives = ["Дружина", "Чоловік", "Син", "Донька", "Мати", "Батько", "Родич"]
         family_tabs = st.tabs([f"👤 {r}" for r in relatives])
-        
+
         if 'family_data' not in st.session_state:
             st.session_state['family_data'] = {}
-            
+
+        if 'family_manual_data' not in st.session_state:
+            st.session_state['family_manual_data'] = {}
+
         for i, relative_type in enumerate(relatives):
             with family_tabs[i]:
-                uploaded_family_pdf = st.file_uploader(
-                    f"Завантажте PDF ДМС ({relative_type})",
+                st.markdown("##### **Завантажити PDF файли (ДМС)**")
+                uploaded_family_pdfs = st.file_uploader(
+                    f"Завантажте PDF файли ДМС ({relative_type})",
                     type=['pdf'],
+                    accept_multiple_files=True,
                     key=f"family_pdf_{relative_type}"
                 )
-                
-                if uploaded_family_pdf:
-                    last_key = f"last_uploaded_family_{relative_type}"
-                    if st.session_state.get(last_key) != uploaded_family_pdf.name:
-                        with st.spinner(f"Обробка PDF {relative_type}..."):
-                            dms_info, photo_bytes, error = extract_dms_data(uploaded_family_pdf)
-                            if error:
-                                st.error(error)
-                            else:
-                                st.success(f"✅ Дані родича ({relative_type}) успішно зчитано")
-                                st.session_state['family_data'][relative_type] = {
-                                    'info': dms_info,
-                                    'photo_bytes': photo_bytes
-                                }
-                                st.session_state[last_key] = uploaded_family_pdf.name
-                
-                if relative_type in st.session_state['family_data']:
-                    st.info(f"📁 Використовуються дані: {st.session_state.get(f'last_uploaded_family_{relative_type}')}")
-                    if st.button(f"❌ Видалити ({relative_type})", key=f"clear_{relative_type}"):
-                        del st.session_state['family_data'][relative_type]
-                        st.session_state[f"last_uploaded_family_{relative_type}"] = None
-                        st.rerun()
+
+                # Обробка завантажених файлів
+                if uploaded_family_pdfs:
+                    files_key = f"last_uploaded_family_{relative_type}"
+                    current_files = [f.name for f in uploaded_family_pdfs]
+                    last_files = st.session_state.get(files_key, [])
+
+                    if current_files != last_files:
+                        with st.spinner(f"Обробка PDF файлів {relative_type}..."):
+                            if relative_type not in st.session_state['family_data']:
+                                st.session_state['family_data'][relative_type] = []
+
+                            for pdf_file in uploaded_family_pdfs:
+                                dms_info, photo_bytes, error = extract_dms_data(pdf_file)
+                                if error:
+                                    st.error(f"Помилка у файлі {pdf_file.name}: {error}")
+                                else:
+                                    st.success(f"✅ Дані родича ({relative_type}) з файлу {pdf_file.name} успішно зчитано")
+                                    st.session_state['family_data'][relative_type].append({
+                                        'info': dms_info,
+                                        'photo_bytes': photo_bytes,
+                                        'source': 'pdf',
+                                        'filename': pdf_file.name
+                                    })
+
+                            st.session_state[files_key] = current_files
+
+                # Показуємо завантажені дані
+                if relative_type in st.session_state['family_data'] and st.session_state['family_data'][relative_type]:
+                    st.markdown("##### **Завантажені дані з PDF:**")
+                    for idx, item in enumerate(st.session_state['family_data'][relative_type]):
+                        col1, col2 = st.columns([4, 1])
+                        with col1:
+                            st.info(f"📁 Файл: {item.get('filename', 'Невідомо')}")
+                        with col2:
+                            if st.button(f"❌", key=f"delete_pdf_{relative_type}_{idx}", help="Видалити"):
+                                st.session_state['family_data'][relative_type].pop(idx)
+                                st.rerun()
+
+                st.markdown("---")
+                st.markdown("##### **Або додати вручну:**")
+
+                # Кнопка додавання нового запису
+                if st.button(f"➕ Додати запис ({relative_type})", key=f"add_manual_{relative_type}"):
+                    if relative_type not in st.session_state['family_manual_data']:
+                        st.session_state['family_manual_data'][relative_type] = []
+                    st.session_state['family_manual_data'][relative_type].append({
+                        'text': '',
+                        'photo_bytes': None
+                    })
+                    st.rerun()
+
+                # Показуємо вручну додані записи
+                if relative_type in st.session_state['family_manual_data'] and st.session_state['family_manual_data'][relative_type]:
+                    for idx, item in enumerate(st.session_state['family_manual_data'][relative_type]):
+                        st.markdown(f"**Запис #{idx + 1}:**")
+                        col1, col2 = st.columns([1, 2])
+
+                        with col1:
+                            # Завантаження фото для запису
+                            uploaded_photo = st.file_uploader(
+                                "Фото",
+                                type=['png', 'jpg', 'jpeg'],
+                                key=f"manual_photo_{relative_type}_{idx}"
+                            )
+
+                            if uploaded_photo:
+                                img = Image.open(uploaded_photo)
+                                buffered = BytesIO()
+                                img.save(buffered, format="PNG")
+                                st.session_state['family_manual_data'][relative_type][idx]['photo_bytes'] = buffered.getvalue()
+                                st.image(img, width=150)
+                            elif item.get('photo_bytes'):
+                                st.image(Image.open(BytesIO(item['photo_bytes'])), width=150)
+                            elif os.path.exists('default_avatar.png'):
+                                st.image('default_avatar.png', width=150)
+
+                        with col2:
+                            # Текстове поле для введення даних
+                            text_key = f"manual_text_{relative_type}_{idx}"
+                            current_text = item.get('text', '')
+                            new_text = st.text_area(
+                                "Текст (використовуйте формат \"Ключ: значення\" для кожного поля)",
+                                value=current_text,
+                                key=text_key,
+                                height=150
+                            )
+                            st.session_state['family_manual_data'][relative_type][idx]['text'] = new_text
+
+                        # Кнопка видалення запису
+                        if st.button(f"❌ Видалити запис #{idx + 1}", key=f"delete_manual_{relative_type}_{idx}"):
+                            st.session_state['family_manual_data'][relative_type].pop(idx)
+                            st.rerun()
+
+                        st.markdown("---")
 
         # Секція експорту
         st.markdown("---")
@@ -645,12 +723,23 @@ def main():
 
                             family_list = []
                             if 'family_data' in st.session_state:
-                                for rel_type, rel_data in st.session_state['family_data'].items():
-                                    family_list.append({
-                                        'relative_type': rel_type,
-                                        'info': rel_data['info'],
-                                        'photo_bytes': rel_data['photo_bytes']
-                                    })
+                                for rel_type, rel_data_list in st.session_state['family_data'].items():
+                                    for rel_item in rel_data_list:
+                                        family_list.append({
+                                            'relative_type': rel_type,
+                                            'info': rel_item['info'],
+                                            'photo_bytes': rel_item['photo_bytes']
+                                        })
+                            # Додаємо вручну введені дані
+                            if 'family_manual_data' in st.session_state:
+                                for rel_type, manual_list in st.session_state['family_manual_data'].items():
+                                    for manual_item in manual_list:
+                                        if manual_item.get('text') or manual_item.get('photo_bytes'):
+                                            family_list.append({
+                                                'relative_type': rel_type,
+                                                'manual_text': manual_item.get('text', ''),
+                                                'photo_bytes': manual_item.get('photo_bytes')
+                                            })
 
                             docx_data = generate_docx(
                                 {"Контент": ordered_content},
@@ -695,6 +784,26 @@ def main():
                                         'photo_bytes': rel_data['photo_bytes']
                                     })
 
+                            family_list = []
+                            if 'family_data' in st.session_state:
+                                for rel_type, rel_data_list in st.session_state['family_data'].items():
+                                    for rel_item in rel_data_list:
+                                        family_list.append({
+                                            'relative_type': rel_type,
+                                            'info': rel_item['info'],
+                                            'photo_bytes': rel_item['photo_bytes']
+                                        })
+                            # Додаємо вручну введені дані
+                            if 'family_manual_data' in st.session_state:
+                                for rel_type, manual_list in st.session_state['family_manual_data'].items():
+                                    for manual_item in manual_list:
+                                        if manual_item.get('text') or manual_item.get('photo_bytes'):
+                                            family_list.append({
+                                                'relative_type': rel_type,
+                                                'manual_text': manual_item.get('text', ''),
+                                                'photo_bytes': manual_item.get('photo_bytes')
+                                            })
+
                             # Пробуем создать PDF напрямую из данных
                             pdf_data = create_pdf_directly(
                                 {"Контент": ordered_content},
@@ -731,12 +840,23 @@ def main():
                                 # Спочатку генеруємо DOCX
                                 family_list = []
                                 if 'family_data' in st.session_state:
-                                    for rel_type, rel_data in st.session_state['family_data'].items():
-                                        family_list.append({
-                                            'relative_type': rel_type,
-                                            'info': rel_data['info'],
-                                            'photo_bytes': rel_data['photo_bytes']
-                                        })
+                                    for rel_type, rel_data_list in st.session_state['family_data'].items():
+                                        for rel_item in rel_data_list:
+                                            family_list.append({
+                                                'relative_type': rel_type,
+                                                'info': rel_item['info'],
+                                                'photo_bytes': rel_item['photo_bytes']
+                                            })
+                                # Додаємо вручну введені дані
+                                if 'family_manual_data' in st.session_state:
+                                    for rel_type, manual_list in st.session_state['family_manual_data'].items():
+                                        for manual_item in manual_list:
+                                            if manual_item.get('text') or manual_item.get('photo_bytes'):
+                                                family_list.append({
+                                                    'relative_type': rel_type,
+                                                    'manual_text': manual_item.get('text', ''),
+                                                    'photo_bytes': manual_item.get('photo_bytes')
+                                                })
 
                                 docx_data = generate_docx(
                                     {"Контент": ordered_content},

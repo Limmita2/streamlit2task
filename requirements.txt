@@ -15,6 +15,5 @@ streamlit-pdf-viewer
 pymupdf
 beautifulsoup4
 lxml
-requests
 docxtopdf
 fonttools
