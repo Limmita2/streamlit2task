@@ -21,7 +21,7 @@ def format_text_with_styles(text, default_font, bold_font, italic_font, bold_ita
     return text
 
 
-def create_pdf_directly(data: dict, photo_bytes: bytes = None, border_crossing_data: list = None, dms_data: dict = None, family_data: list = None) -> bytes:
+def create_pdf_directly(data: dict, photo_bytes: bytes = None, border_crossing_data: list = None, dms_data: dict = None, family_data: list = None, real_estate_data: list = None) -> bytes:
     """
     Создает PDF напрямую из данных, минуя DOCX.
 
@@ -414,6 +414,12 @@ def create_pdf_directly(data: dict, photo_bytes: bytes = None, border_crossing_d
         elements.append(Spacer(1, 12))
         elements.append(Paragraph("ІНФОРМАЦІЯ З ДМС", blue_header_style))
         elements.append(Paragraph("Дані ДМС додано до DOCX версії документа. Для повного відображення використовуйте DOCX або альтернативний метод PDF.", normal_justified_style))
+
+    # Додаємо секцію нерухомості, якщо вона є
+    if real_estate_data:
+        elements.append(Spacer(1, 12))
+        elements.append(Paragraph("НЕРУХОМІСТЬ", blue_header_style))
+        elements.append(Paragraph("Дані про нерухомість додано до DOCX версії документа. Для повного відображення використовуйте DOCX або альтернативний метод PDF.", normal_justified_style))
 
     # Додаємо інформацію про родинні зв'язки, якщо вона є
     if family_data:

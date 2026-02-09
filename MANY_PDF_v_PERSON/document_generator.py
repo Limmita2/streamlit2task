@@ -18,6 +18,7 @@ import os
 from datetime import datetime
 from arkan_processor import append_border_crossing_to_doc
 from dms_processor import append_dms_to_doc
+from real_estate_processor import append_real_estate_to_doc
 
 
 
@@ -43,7 +44,7 @@ def get_filename_from_intro(data: dict) -> str:
     return "Dossier.docx"
 
 
-def generate_docx(data: dict, photo_bytes: bytes = None, border_crossing_data: list = None, dms_data: dict = None, family_data: list = None) -> bytes:
+def generate_docx(data: dict, photo_bytes: bytes = None, border_crossing_data: list = None, dms_data: dict = None, family_data: list = None, real_estate_data: list = None) -> bytes:
     """
     Генерує документ Word з вибраних абзаців.
     """
@@ -230,6 +231,10 @@ def generate_docx(data: dict, photo_bytes: bytes = None, border_crossing_data: l
             title_run.font.size = Pt(14)
             title_run.font.bold = True
             title_run.font.color.rgb = RGBColor(0, 0, 0)
+
+    # Додаємо секцію нерухомості, якщо вона є (має бути другою за логікою)
+    if real_estate_data:
+        append_real_estate_to_doc(doc, real_estate_data)
 
     # Добавляем контент (вже відфільтрований без вступу)
     for item in filtered_content:

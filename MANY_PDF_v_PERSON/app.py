@@ -14,6 +14,7 @@ from streamlit_pdf_viewer import pdf_viewer
 from arkan_processor import process_excel_to_data
 import dms_processor
 from dms_processor import extract_dms_data
+from real_estate_processor import parse_real_estate_pdf
 
 
 # Налаштування сторінки
@@ -473,15 +474,15 @@ def main():
         st.markdown("---")
         st.header("6️⃣ Документи")
         
-        tab_dms, tab_arkan = st.tabs(["🏛️ ДМС", "🚢 Аркан"])
-        
+        tab_dms, tab_arkan, tab_real_estate = st.tabs(["🏛️ ДМС", "🚢 Аркан", "🏢 Нерухомість"])
+
         with tab_dms:
             uploaded_dms = st.file_uploader(
                 "Завантажте PDF файл (ДМС)",
                 type=['pdf'],
                 key="dms_pdf_uploader"
             )
-            
+
             if uploaded_dms:
                 if st.session_state.get('last_uploaded_dms') != uploaded_dms.name:
                     with st.spinner("Обробка PDF ДМС..."):
@@ -497,7 +498,7 @@ def main():
                             st.session_state['last_uploaded_dms'] = uploaded_dms.name
                             if photo_bytes:
                                 st.session_state['photo_data'] = base64.b64encode(photo_bytes).decode()
-            
+
             if st.session_state.get('dms_data'):
                 st.info(f"📁 Використовуються дані ДМС з: {st.session_state.get('last_uploaded_dms')}")
                 if st.button("❌ Очистити дані ДМС"):
@@ -511,7 +512,7 @@ def main():
                 type=['xlsx', 'xls'],
                 key="arkan_excel_uploader"
             )
-            
+
             if uploaded_excel:
                 if st.session_state.get('last_uploaded_arkan') != uploaded_excel.name:
                     with st.spinner("Обробка Excel файлу..."):
@@ -522,12 +523,63 @@ def main():
                             st.success(f"✅ Дані з файлу {uploaded_excel.name} успішно зчитано")
                             st.session_state['border_crossing_data'] = border_data
                             st.session_state['last_uploaded_arkan'] = uploaded_excel.name
-            
+
             if st.session_state.get('border_crossing_data'):
                 st.info(f"📁 Використовуються дані Аркан з: {st.session_state.get('last_uploaded_arkan')}")
                 if st.button("❌ Очистити дані Аркан"):
                     st.session_state['border_crossing_data'] = None
                     st.session_state['last_uploaded_arkan'] = None
+                    st.rerun()
+
+        with tab_real_estate:
+            uploaded_real_estate = st.file_uploader(
+                "Завантажте PDF файл (Нерухомість)",
+                type=['pdf'],
+                accept_multiple_files=True,
+                key="real_estate_pdf_uploader"
+            )
+
+            if uploaded_real_estate:
+                if st.session_state.get('last_uploaded_real_estate') != uploaded_real_estate[0].name:
+                    with st.spinner("Обробка PDF файлів нерухомості..."):
+                        all_real_estate_data = []
+                        
+                        for uploaded_file in uploaded_real_estate:
+                            # Seek to the beginning of the file
+                            uploaded_file.seek(0)
+                            
+                            real_estate_data, error = parse_real_estate_pdf(uploaded_file)
+                            
+                            if error:
+                                st.error(f"Помилка обробки файлу {uploaded_file.name}: {error}")
+                            else:
+                                if real_estate_data:
+                                    all_real_estate_data.extend(real_estate_data)
+                        
+                        if all_real_estate_data:
+                            st.session_state['real_estate_data'] = all_real_estate_data
+                            st.success(f"✅ Дані з файлів нерухомості успішно зчитано. Знайдено {len(all_real_estate_data)} записів.")
+                        else:
+                            st.warning("Не знайдено даних про нерухомість у завантажених файлах.")
+                        
+                        st.session_state['last_uploaded_real_estate'] = uploaded_real_estate[0].name
+
+            if st.session_state.get('real_estate_data'):
+                st.info(f"📁 Використовуються дані нерухомості")
+                
+                # Отображаем извлеченные данные для проверки
+                with st.expander("🔍 Перегляд даних нерухомості", expanded=False):
+                    real_estate_data = st.session_state['real_estate_data']
+                    for idx, item in enumerate(real_estate_data):
+                        st.write(f"**Об'єкт нерухомості #{idx + 1}:**")
+                        for key, value in item.items():
+                            if value:
+                                st.write(f"- {key}: {value}")
+                        st.write("---")  # Разделитель между объектами
+                
+                if st.button("❌ Очистити дані нерухомості"):
+                    st.session_state['real_estate_data'] = None
+                    st.session_state['last_uploaded_real_estate'] = None
                     st.rerun()
 
         # Секція 7: Родинні зв'язки
@@ -605,7 +657,8 @@ def main():
                                 photo_bytes=photo_bytes,
                                 border_crossing_data=st.session_state.get('border_crossing_data'),
                                 dms_data=st.session_state.get('dms_data'),
-                                family_data=family_list
+                                family_data=family_list,
+                                real_estate_data=st.session_state.get('real_estate_data')
                             )
 
                             # Получаем имя файла из блока "Початок документа"
@@ -648,14 +701,15 @@ def main():
                                 photo_bytes=photo_bytes,
                                 border_crossing_data=st.session_state.get('border_crossing_data'),
                                 dms_data=st.session_state.get('dms_data'),
-                                family_data=family_list
+                                family_data=family_list,
+                                real_estate_data=st.session_state.get('real_estate_data')
                             )
 
                             # Получаем имя PDF-файла
                             pdf_filename = get_pdf_filename_from_intro({"Контент": ordered_content})
 
                             st.download_button(
-                                label="💾 Зберегти PDF",
+                                label="💾 Зберегти PDF(ІПНП) ",
                                 data=pdf_data,
                                 file_name=pdf_filename,
                                 mime="application/pdf"
@@ -689,7 +743,8 @@ def main():
                                     photo_bytes=photo_bytes,
                                     border_crossing_data=st.session_state.get('border_crossing_data'),
                                     dms_data=st.session_state.get('dms_data'),
-                                    family_data=family_list
+                                    family_data=family_list,
+                                    real_estate_data=st.session_state.get('real_estate_data')
                                 )
 
                                 # Затем конвертируем в PDF
