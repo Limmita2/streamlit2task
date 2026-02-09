@@ -14,31 +14,31 @@ import re
 
 def format_text_with_styles(text, default_font, bold_font, italic_font, bold_italic_font):
     """
-    Форматирует текст с поддержкой различных стилей (жирный, курсив).
+    Форматує текст з підтримкою різних стилів (жирний, курсив).
     """
-    # Для упрощения, возвращаем текст как есть
-    # В реальной реализации можно добавить поддержку тегов типа <b>, <i>
+    # Для спрощення, повертаємо текст як є
+    # В реальній реалізації можна додати підтримку тегів типу <b>, <i>
     return text
 
 
 def create_pdf_directly(data: dict, photo_bytes: bytes = None, border_crossing_data: list = None, dms_data: dict = None, family_data: list = None, real_estate_data: list = None) -> bytes:
     """
-    Создает PDF напрямую из данных, минуя DOCX.
+    Створює PDF напряму з даних, оминаючи DOCX.
 
     Args:
-        data: Данные для генерации документа
-        photo_bytes: Байты фото для вставки (опционально)
+        data: Дані для генерації документа
+        photo_bytes: Байти фото для вставки (опціонально)
 
     Returns:
-        bytes: Байты PDF-документа
+        bytes: Байти PDF-документа
     """
     # Регистрируем шрифты, поддерживающие кириллицу
     from reportlab.pdfbase.pdfmetrics import registerFontFamily
     from reportlab.pdfbase.ttfonts import TTFont
 
-    # Попробуем использовать Liberation Serif (аналог Times New Roman с поддержкой кириллицы)
+    # Спробуємо використати Liberation Serif (аналог Times New Roman з підтримкою кирилиці)
     try:
-        # Зарегистрируем Liberation Serif как основной шрифт
+        # Зареєструємо Liberation Serif як основний шрифт
         pdfmetrics.registerFont(TTFont('LiberationSerif', 'LiberationSerif-Regular.ttf'))
         pdfmetrics.registerFont(TTFont('LiberationSerif-Bold', 'LiberationSerif-Bold.ttf'))
         pdfmetrics.registerFont(TTFont('LiberationSerif-Italic', 'LiberationSerif-Italic.ttf'))
@@ -49,7 +49,7 @@ def create_pdf_directly(data: dict, photo_bytes: bytes = None, border_crossing_d
         italic_font = 'LiberationSerif-Italic'
         bold_italic_font = 'LiberationSerif-BoldItalic'
     except:
-        # Если Liberation Serif недоступен, используем DejaVuSans
+        # Якщо Liberation Serif недоступний, використовуємо DejaVuSans
         try:
             pdfmetrics.registerFont(TTFont('DejaVuSerif', 'DejaVuSerif.ttf'))
             pdfmetrics.registerFont(TTFont('DejaVuSerif-Bold', 'DejaVuSerif-Bold.ttf'))
@@ -61,27 +61,27 @@ def create_pdf_directly(data: dict, photo_bytes: bytes = None, border_crossing_d
             italic_font = 'DejaVuSerif-Italic'
             bold_italic_font = 'DejaVuSerif-BoldItalic'
         except:
-            # Если и DejaVu недоступен, используем стандартный шрифт
+            # Якщо і DejaVu недоступний, використовуємо стандартний шрифт
             default_font = 'Helvetica'
             bold_font = 'Helvetica-Bold'
             italic_font = 'Helvetica-Oblique'
             bold_italic_font = 'Helvetica-BoldOblique'
 
-    # Создаем PDF документ в памяти
+    # Створюємо PDF документ в пам'яті
     pdf_buffer = BytesIO()
     doc_template = SimpleDocTemplate(pdf_buffer, pagesize=A4, topMargin=56, bottomMargin=56,
                                      leftMargin=85, rightMargin=42)  # Конвертация из см в pt (1 см = 28.3 pt)
 
-    # Рассчитываем ширину для таблиц на всю ширину страницы
-    page_width = 595  # Ширина A4 в пунктах (8.27 дюймов * 72 pt/inch)
-    left_margin = 85  # Левый отступ в пунктах
-    right_margin = 42  # Правый отступ в пунктах
-    full_width = page_width - left_margin - right_margin  # Ширина доступного пространства
+    # Розраховуємо ширину для таблиц на всю ширину сторінки
+    page_width = 595  # Ширина A4 в пунктах (8.27 дюймів * 72 pt/inch)
+    left_margin = 85  # Лівий відступ у пунктах
+    right_margin = 42  # Правий відступ у пунктах
+    full_width = page_width - left_margin - right_margin  # Ширина доступного простору
 
-    # Устанавливаем стили
+    # Встановлюємо стилі
     styles = getSampleStyleSheet()
 
-    # Создаем кастомные стили
+    # Створюємо кастомні стилі
     title_center_style = ParagraphStyle(
         'TitleCenter',
         parent=styles['Normal'],
@@ -90,7 +90,7 @@ def create_pdf_directly(data: dict, photo_bytes: bytes = None, border_crossing_d
         alignment=TA_CENTER,
         spaceAfter=0,
         spaceBefore=0,
-        leading=16.1  # 1,15 интервал
+        leading=16.1  # 1,15 інтервал
     )
 
     title_italic_style = ParagraphStyle(
@@ -101,7 +101,7 @@ def create_pdf_directly(data: dict, photo_bytes: bytes = None, border_crossing_d
         alignment=TA_CENTER,
         spaceAfter=0,
         spaceBefore=0,
-        leading=16.1  # 1,15 интервал
+        leading=16.1  # 1,15 інтервал
     )
 
     blue_header_style = ParagraphStyle(
@@ -110,12 +110,12 @@ def create_pdf_directly(data: dict, photo_bytes: bytes = None, border_crossing_d
         fontName=bold_font,
         fontSize=14,
         alignment=TA_LEFT,
-        textColor=colors.black,  # Изменяем цвет текста на черный
+        textColor=colors.black,  # Змінюємо колір тексту на чорний
         backColor=colors.HexColor('#9BC2E6'),
-        leftIndent=28,  # 7 пробелов (~7*4pt)
+        leftIndent=28,  # 7 пробілів (~7*4pt)
         spaceAfter=0,
         spaceBefore=0,
-        leading=16.1  # 1,15 интервал
+        leading=16.1  # 1,15 інтервал
     )
 
     blue_header_italic_style = ParagraphStyle(
@@ -124,12 +124,12 @@ def create_pdf_directly(data: dict, photo_bytes: bytes = None, border_crossing_d
         fontName=bold_italic_font,
         fontSize=14,
         alignment=TA_LEFT,
-        textColor=colors.black,  # Изменяем цвет текста на черный
+        textColor=colors.black,  # Змінюємо колір тексту на чорний
         backColor=colors.HexColor('#9BC2E6'),
-        leftIndent=28,  # 7 пробелов (~7*4pt)
+        leftIndent=28,  # 7 пробілів (~7*4pt)
         spaceAfter=0,
         spaceBefore=0,
-        leading=16.1  # 1,15 интервал
+        leading=16.1  # 1,15 інтервал
     )
 
     normal_justified_style = ParagraphStyle(
@@ -142,38 +142,38 @@ def create_pdf_directly(data: dict, photo_bytes: bytes = None, border_crossing_d
         rightIndent=0,
         spaceAfter=2,
         spaceBefore=0,
-        leading=16.1  # 1,15 интервал
+        leading=16.1  # 1,15 інтервал
     )
     
-    # Список элементов для построения PDF
+    # Список елементів для побудови PDF
     elements = []
     
-    # Добавляем заголовки
+    # Додаємо заголовки
     elements.append(Paragraph("АНАЛІТИЧНИЙ ПРОФІЛЬ", title_center_style))
     elements.append(Paragraph("на фізичну особу", title_center_style))
-    elements.append(Spacer(1, 0))  # Пустая строка с высотой 8pt
+    elements.append(Spacer(1, 0))  # Порожній рядок з висотою 8pt
 
     # 1. ЗАГАЛЬНИЙ ЗАГОЛОВОК ДОКУМЕНТА (Блакитна полоса)
-    # Создаем таблицу для заголовка с блакитным фоном
-    # Используем ширину всей страницы с учетом отступов
-    full_width = 515  # Примерная ширина страницы A4 с отступами (595 - 2*40)
-    header_table_data = [["       " + "АНКЕТНІ ДАНІ:"]]  # 7 пробелов перед заголовком
+    # Створюємо таблицю для заголовка з блакитним фоном
+    # Використовуємо ширину всієї сторінки з урахуванням відступів
+    full_width = 515  # Приблизна ширина сторінки A4 з відступами (595 - 2*40)
+    header_table_data = [["       " + "АНКЕТНІ ДАНІ:"]]  # 7 пробілів перед заголовком
 
     header_table = Table(header_table_data, colWidths=[full_width])
 
-    # Стиль таблицы с блакитным фоном
+    # Стиль таблиці з блакитним фоном
     header_table_style = TableStyle([
-        ('FONTNAME', (0, 0), (-1, -1), bold_italic_font),  # Жирный курсив
+        ('FONTNAME', (0, 0), (-1, -1), bold_italic_font),  # Жирний курсив
         ('FONTSIZE', (0, 0), (-1, -1), 14),
         ('ALIGNMENT', (0, 0), (-1, -1), 'LEFT'),
         ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
         ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#9BC2E6')),
-        ('LEFTPADDING', (0, 0), (-1, -1), 0),  # Убираем внутренние отступы, чтобы фон был под пробелами
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),  # Прибираємо внутрішні відступи, щоб фон був під пробілами
         ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-        ('TOPPADDING', (0, 0), (-1, -1), 2),  # Уменьшаем отступ сверху (примерно 1 мм)
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),  # Увеличиваем отступ снизу (примерно 5 мм)
-        # Полностью убираем границы
-        ('LINEBELOW', (0, 0), (-1, -1), 0, colors.white),  # Прозрачная граница
+        ('TOPPADDING', (0, 0), (-1, -1), 2),  # Зменшуємо відступ згори (приблизно 1 мм)
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),  # Збільшуємо відступ знизу (приблизно 5 мм)
+        # Повністю прибираємо межі
+        ('LINEBELOW', (0, 0), (-1, -1), 0, colors.white),  # Прозора межа
         ('LINEABOVE', (0, 0), (-1, -1), 0, colors.white),
         ('LINEBEFORE', (0, 0), (-1, -1), 0, colors.white),
         ('LINEAFTER', (0, 0), (-1, -1), 0, colors.white),
@@ -181,9 +181,9 @@ def create_pdf_directly(data: dict, photo_bytes: bytes = None, border_crossing_d
 
     header_table.setStyle(header_table_style)
     elements.append(header_table)
-    elements.append(Spacer(1, 8))  # Пустая строка высотой 8pt
+    elements.append(Spacer(1, 8))  # Порожній рядок висотою 8pt
     
-    # Создаем таблицу для фото и вступительного текста
+    # Створюємо таблицю для фото та вступного тексту
     content_list = data.get("Контент", [])
     intro_text = ""
     filtered_content = []
@@ -194,25 +194,25 @@ def create_pdf_directly(data: dict, photo_bytes: bytes = None, border_crossing_d
         else:
             filtered_content.append(item)
     
-    # Создаем таблицу для фото и вступительного текста
+    # Створюємо таблицю для фото та вступного тексту
     if photo_bytes or intro_text:
-        # Подготовим элементы для таблицы
+        # Підготуємо елементи для таблиці
         photo_cell = []
         text_cell = []
 
-        # Добавляем фото в левую ячейку
+        # Додаємо фото в ліву комірку
         if photo_bytes:
             try:
-                # Создаем изображение из байтов
+                # Створюємо зображення з байтів
                 img_buffer = BytesIO(photo_bytes)
-                # Попробуем создать изображение с сохранением пропорций
+                # Спробуємо створити зображення зі збереженням пропорцій
                 img = Image(img_buffer, width=142, height=142)  # 1.8 дюйма * 72 pt/inch
-                img.hAlign = 'LEFT'  # Выравнивание изображения по левому краю
+                img.hAlign = 'LEFT'  # Вирівнювання зображення по лівому краю
                 photo_cell.append(img)
             except Exception as e:
-                # Если не удалось добавить фото, выводим сообщение об ошибке в лог
+                # Якщо не вдалося додати фото, виводимо повідомлення про помилку в лог
                 print(f"Ошибка при добавлении фото: {e}")
-                # Вместо пустой ячейки добавим текстовое уведомление
+                # Замість порожньої комірки додамо текстове сповіщення
                 style = ParagraphStyle(
                     'PhotoPlaceholderStyle',
                     parent=styles['Normal'],
@@ -226,56 +226,56 @@ def create_pdf_directly(data: dict, photo_bytes: bytes = None, border_crossing_d
                 )
                 photo_cell.append(Paragraph("Фото відсутнє", style))
 
-        # Добавляем текст в правую ячейку
+        # Додаємо текст в праву комірку
         if intro_text:
-            # Очищаем текст от "д.н."
+            # Очищаємо текст від "д.н."
             intro_text = intro_text.replace("д.н.", "").replace("  ", " ")
 
-            # Определяем специальные паттерны для "Місце народження" и "Громадянство"
+            # Визначаємо спеціальні паттерни для "Місце народження" і "Громадянство"
             SPECIAL_PATTERN = r'([МM][іi][сc]ц[еe]\s*[нN][аa][рR][оO][дD][жJ][еЕ][нN]{2}[яY]\s*:|Громадянство\s*:)'
 
-            # Разбиваем текст по ключевым словам и делаем их жирными
+            # Розбиваємо текст за ключовими словами і робимо їх жирними
             BOLD_PATTERN = r'(Mарка\s*:|заявник\s*:|Марка\s*:|свідок\s*\(учасник\)\s*:|ухилянт\s*:|Вид\s*:|правопорушник\s*:|Номер\s*дозволу\s*:|телефони\s*:|[МM][іi][сc]ц[еe]\s*[нH][аa][рp][оo]др[еe][нH]{2}я\s*:|Громадянство\s*:|постраждалий\s*\(потерпілий\)\s*:|категорія\s*:|№\s+[А-ЯІЇ]{2,4}\s+\d+(?:\s+[А-ЯІЇ]{2}\s+\d+)?\s+від\s+\d{2}\.\d{2}\.\d{4}\s+\d{2}:\d{2}:\d{2}\s*,\s*орган:)'
 
-            # Сначала разбиваем по специальным паттернам (Місце народження и Громадянство)
+            # Спочатку розбиваємо за спеціальними паттернами (Місце народження і Громадянство)
             special_parts = re.split(SPECIAL_PATTERN, intro_text)
 
             for special_part in special_parts:
                 if not special_part:
                     continue
 
-                # Проверяем, является ли часть специальным ключевым словом
+                # Перевіряємо, чи є частина спеціальним ключовим словом
                 if re.fullmatch(SPECIAL_PATTERN, special_part):
-                    # Жирный стиль для специальных ключевых слов
+                    # Жирний стиль для спеціальних ключових слів
                     style = ParagraphStyle(
                         'IntroSpecialBoldStyle',
                         parent=styles['Normal'],
                         fontName=bold_font,
                         fontSize=14,
-                        alignment=TA_LEFT,  # Для вступительного текста используем левое выравнивание
+                        alignment=TA_LEFT,  # Для вступного тексту використовуємо ліве вирівнювання
                         leftIndent=0,
                         spaceAfter=2,
-                        spaceBefore=6,  # Добавляем отступ сверху для новой строки
+                        spaceBefore=6,  # Додаємо відступ згори для нового рядка
                         leading=16.1
                     )
                     text_cell.append(Paragraph(special_part, style))
                 else:
-                    # Разбиваем оставшийся текст по обычным ключевым словам
+                    # Розбиваємо решту тексту за звичайними ключовими словами
                     parts = re.split(BOLD_PATTERN, special_part)
 
                     for part in parts:
                         if not part:
                             continue
 
-                        # Проверяем, является ли часть ключевым словом
+                        # Перевіряємо, чи є частина ключовим словом
                         if re.fullmatch(BOLD_PATTERN, part):
-                            # Жирный стиль для ключевых слов
+                            # Жирний стиль для ключових слів
                             style = ParagraphStyle(
                                 'IntroBoldStyle',
                                 parent=styles['Normal'],
                                 fontName=bold_font,
                                 fontSize=14,
-                                alignment=TA_LEFT,  # Для вступительного текста используем левое выравнивание
+                                alignment=TA_LEFT,  # Для вступного тексту використовуємо ліве вирівнювання
                                 leftIndent=0,
                                 spaceAfter=2,
                                 spaceBefore=0,
@@ -283,13 +283,13 @@ def create_pdf_directly(data: dict, photo_bytes: bytes = None, border_crossing_d
                             )
                             text_cell.append(Paragraph(part, style))
                         else:
-                            # Обычный стиль для остального текста
+                            # Звичайний стиль для решти тексту
                             style = ParagraphStyle(
                                 'IntroNormalStyle',
                                 parent=styles['Normal'],
                                 fontName=default_font,
                                 fontSize=14,
-                                alignment=TA_LEFT,  # Для вступительного текста используем левое выравнивание
+                                alignment=TA_LEFT,  # Для вступного тексту використовуємо ліве вирівнювання
                                 leftIndent=0,
                                 spaceAfter=2,
                                 spaceBefore=0,
@@ -310,51 +310,51 @@ def create_pdf_directly(data: dict, photo_bytes: bytes = None, border_crossing_d
             )
             text_cell.append(Paragraph("Особисте досьє", style))
 
-        # Создаем таблицу с двумя колонками
-        # 142 pt - ширина фото (1.8 дюйма), 28 pt - отступ 5 мм (5/25.4*72), 318-28=290 pt - ширина текста
+        # Створюємо таблицю з двома колонками
+        # 142 pt - ширина фото (1.8 дюйма), 28 pt - відступ 5 мм (5/25.4*72), 318-28=290 pt - ширина тексту
         table_data = [[photo_cell, text_cell]]
-        table = Table(table_data, colWidths=[142, 290])  # 1.8 дюйма * 72 = 142 pt, остаток с учетом отступа
+        table = Table(table_data, colWidths=[142, 290])  # 1.8 дюйма * 72 = 142 pt, залишок з урахуванням відступу
 
-        # Стиль таблицы
+        # Стиль таблиці
         table_style = TableStyle([
             ('FONTNAME', (0, 0), (-1, -1), default_font),
             ('FONTSIZE', (0, 0), (-1, -1), 14),
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('LEFTPADDING', (0, 0), (0, -1), 4),      # Левый отступ для фото
-            ('RIGHTPADDING', (0, 0), (0, -1), 14),    # Правый отступ для фото (примерно 5 мм)
-            ('LEFTPADDING', (1, 0), (1, -1), 14),     # Левый отступ для текста (примерно 5 мм)
-            ('RIGHTPADDING', (1, 0), (1, -1), 4),     # Правый отступ для текста
+            ('LEFTPADDING', (0, 0), (0, -1), 4),      # Лівий відступ для фото
+            ('RIGHTPADDING', (0, 0), (0, -1), 14),    # Правий відступ для фото (приблизно 5 мм)
+            ('LEFTPADDING', (1, 0), (1, -1), 14),     # Лівий відступ для тексту (приблизно 5 мм)
+            ('RIGHTPADDING', (1, 0), (1, -1), 4),     # Правий відступ для тексту
             ('TOPPADDING', (0, 0), (-1, -1), 1),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
         ])
 
         table.setStyle(table_style)
         elements.append(table)
-        elements.append(Spacer(1, 6))  # Отступ после таблицы
+        elements.append(Spacer(1, 6))  # Відступ після таблиці
 
-    # Обрабатываем остальные блоки
+    # Обробляємо інші блоки
     for item in filtered_content:
         header = item.get("header", "").strip()
         content = item.get("content", "").strip()
 
         if header:
-            # Создаем таблицу для заголовка с блакитным фоном на всю ширину
+            # Створюємо таблицю для заголовка з блакитним фоном на всю ширину
             header_table_data = [["       " + header.upper()]]  # 7 пробелов перед заголовком
             header_table = Table(header_table_data, colWidths=[full_width])  # Используем ту же ширину
 
-            # Стиль таблицы с блакитным фоном
+            # Стиль таблиці з блакитним фоном
             header_table_style = TableStyle([
-                ('FONTNAME', (0, 0), (-1, -1), bold_italic_font),  # Жирный курсив
+                ('FONTNAME', (0, 0), (-1, -1), bold_italic_font),  # Жирний курсив
                 ('FONTSIZE', (0, 0), (-1, -1), 14),
                 ('ALIGNMENT', (0, 0), (-1, -1), 'LEFT'),
                 ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
                 ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#9BC2E6')),
-                ('LEFTPADDING', (0, 0), (-1, -1), 0),  # Убираем внутренние отступы
+                ('LEFTPADDING', (0, 0), (-1, -1), 0),  # Прибираємо внутрішні відступи
                 ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-                ('TOPPADDING', (0, 0), (-1, -1), 2),  # Уменьшаем отступ сверху (примерно 1 мм)
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),  # Увеличиваем отступ снизу (примерно 5 мм)
-                # Полностью убираем границы
-                ('LINEBELOW', (0, 0), (-1, -1), 0, colors.white),  # Прозрачная граница
+                ('TOPPADDING', (0, 0), (-1, -1), 2),  # Зменшуємо відступ згори (приблизно 1 мм)
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),  # Збільшуємо відступ знизу (приблизно 5 мм)
+                # Повністю прибираємо межі
+                ('LINEBELOW', (0, 0), (-1, -1), 0, colors.white),  # Прозора межа
                 ('LINEABOVE', (0, 0), (-1, -1), 0, colors.white),
                 ('LINEBEFORE', (0, 0), (-1, -1), 0, colors.white),
                 ('LINEAFTER', (0, 0), (-1, -1), 0, colors.white),
@@ -364,29 +364,29 @@ def create_pdf_directly(data: dict, photo_bytes: bytes = None, border_crossing_d
             elements.append(header_table)
 
             if content:
-                # Разбиваем контент по абзацам
+                # Розбиваємо контент за абзацами
                 paragraphs_list = content.split('\n')
 
                 # Определяем паттерн для конкретного заголовка
                 if header == "ЄРДР":
-                    pat = r'(№\s+\d{24}\s+від\s+\d{2}\.\d{2}\.\d{4}\s*,\s*за\s*СТ\.|' + BOLD_PATTERN[1:]  # Убираем первую скобку
+                    pat = r'(№\s+\d{24}\s+від\s+\d{2}\.\d{2}\.\d{4}\s*,\s*за\s*СТ\.|' + BOLD_PATTERN[1:]  # Прибираємо першу дужку
                 elif header == "Адреса":
-                    pat = r'(місце\s*проживання\s*:|' + BOLD_PATTERN[1:]  # Убираем первую скобку
+                    pat = r'(місце\s*проживання\s*:|' + BOLD_PATTERN[1:]  # Прибираємо першу дужку
                 else:
                     pat = BOLD_PATTERN
 
                 for p_text in paragraphs_list:
                     if p_text.strip():
                         # Применяем стиль с выравниванием по ширине
-                        # Разбиваем текст по ключевым словам
+                        # Розбиваємо текст за ключовими словами
                         sub_parts = re.split(pat, p_text)
                         for sub_part in sub_parts:
                             if not sub_part:
                                 continue
 
-                            # Проверяем, является ли часть ключевым словом
+                            # Перевіряємо, чи є частина ключовим словом
                             if re.fullmatch(pat, sub_part):
-                                # Жирный стиль для ключевых слов
+                                # Жирний стиль для ключових слів
                                 style = ParagraphStyle(
                                     'ContentBoldStyle',
                                     parent=styles['Normal'],
@@ -400,7 +400,7 @@ def create_pdf_directly(data: dict, photo_bytes: bytes = None, border_crossing_d
                                 )
                                 elements.append(Paragraph(sub_part, style))
                             else:
-                                # Обычный стиль для остального текста
+                                # Звичайний стиль для решти тексту
                                 elements.append(Paragraph(sub_part, normal_justified_style))
 
     # Додаємо секцію про перетин кордону, якщо вона є (спрощено для прямого PDF)
@@ -427,26 +427,26 @@ def create_pdf_directly(data: dict, photo_bytes: bytes = None, border_crossing_d
         elements.append(Paragraph("РОДИННІ ЗВ'ЯЗКИ", blue_header_style))
         elements.append(Paragraph("Дані про родинні зв'язки додано до DOCX версії документа. Для повного відображення використовуйте DOCX або альтернативний метод PDF.", normal_justified_style))
 
-    # Строим PDF
+    # Будуємо PDF
     doc_template.build(elements)
 
-    # Возвращаем байты PDF
+    # Повертаємо байти PDF
     pdf_buffer.seek(0)
     return pdf_buffer.getvalue()
 
 
 def get_pdf_filename_from_intro(data: dict) -> str:
     """
-    Извлекает первое слово из блока 'Початок документа' для формирования имени PDF файла.
+    Витягує перше слово з блоку 'Початок документа' для формування імені PDF файлу.
     """
     content_list = data.get("Контент", [])
 
     for item in content_list:
         if item.get("header") == "Початок документа":
             content = item.get("content", "")
-            # Извлекаем первое слово из контента
+            # Витягуємо перше слово з контенту
             first_word = content.split()[0] if content.split() else "Dossier"
-            # Убираем специальные символы из имени файла
+            # Прибираємо спеціальні символи з імені файлу
             import re
             first_word = re.sub(r'[^\w\s-]', '', first_word)
             return f"{first_word}.pdf"

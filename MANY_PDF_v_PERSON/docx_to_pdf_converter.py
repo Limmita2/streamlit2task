@@ -6,17 +6,17 @@ from docxtopdf import convert
 
 def convert_docx_to_pdf(docx_bytes: bytes) -> bytes:
     """
-    Конвертирует DOCX-документ в PDF.
+    Конвертує DOCX-документ в PDF.
 
     Args:
-        docx_bytes: Байты DOCX-документа
+        docx_bytes: Байти DOCX-документа
 
     Returns:
-        bytes: Байты PDF-документа
+        bytes: Байти PDF-документа
     """
-    # Попробуем сначала использовать docxtopdf
+    # Спробуємо спочатку використати docxtopdf
     try:
-        # Создаем временные файлы
+        # Створюємо тимчасові файли
         with tempfile.NamedTemporaryFile(suffix='.docx', delete=False) as docx_file:
             docx_file.write(docx_bytes)
             docx_filename = docx_file.name
@@ -28,37 +28,37 @@ def convert_docx_to_pdf(docx_bytes: bytes) -> bytes:
             # Конвертируем DOCX в PDF
             convert(docx_filename, pdf_filename)
 
-            # Читаем результат
+            # Читаємо результат
             with open(pdf_filename, 'rb') as f:
                 pdf_bytes = f.read()
 
-            # Проверяем, что PDF не пустой
+            # Перевіряємо, що PDF не пустий
             if len(pdf_bytes) > 0:
                 return pdf_bytes
             else:
-                # Если docxtopdf вернул пустой PDF, используем альтернативный метод
+                # Якщо docxtopdf повернув пустий PDF, використовуємо альтернативний метод
                 raise Exception("docxtopdf returned empty PDF")
         finally:
-            # Удаляем временные файлы
+            # Видаляємо тимчасові файли
             if os.path.exists(docx_filename):
                 os.remove(docx_filename)
             if os.path.exists(pdf_filename):
                 os.remove(pdf_filename)
     except Exception as e:
-        # Если docxtopdf не работает, используем альтернативный метод
+        # Якщо docxtopdf не працює, використовуємо альтернативний метод
         from docx_to_pdf_converter_alt import convert_docx_to_pdf as alt_convert
         return alt_convert(docx_bytes)
 
 
 def get_pdf_filename_from_docx(docx_filename: str) -> str:
     """
-    Генерирует имя PDF-файла из имени DOCX-файла.
+    Генерує ім'я PDF-файлу з імені DOCX-файлу.
 
     Args:
-        docx_filename: Имя DOCX-файла
+        docx_filename: Ім'я DOCX-файлу
 
     Returns:
-        str: Имя PDF-файла
+        str: Ім'я PDF-файлу
     """
     if docx_filename.lower().endswith('.docx'):
         return docx_filename[:-5] + '.pdf'

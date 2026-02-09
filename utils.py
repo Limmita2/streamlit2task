@@ -3,7 +3,7 @@ import streamlit as st
 
 def remove_max_width():
     """
-    Убирает ограничение max-width для контейнера основного блока Streamlit.
+    Прибирає обмеження max-width для контейнера основного блоку Streamlit.
     """
     st.markdown(
         """

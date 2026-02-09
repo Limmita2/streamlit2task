@@ -143,7 +143,7 @@ def main():
         file_names = list(all_paragraphs_dict.keys())
         active_file = file_names[0]
         if len(file_names) > 1:
-            active_file = st.radio("📂 Выберите файл для просмотра:", file_names, horizontal=True)
+            active_file = st.radio("📂 Оберіть файл для перегляду:", file_names, horizontal=True)
 
         paragraphs = all_paragraphs_dict[active_file]
         # Динамічний розрахунок висоти: приблизно 115 пікселів на блок + заголовок
@@ -152,7 +152,7 @@ def main():
         col_left, col_right = st.columns([1, 1])
 
         with col_left:
-            st.markdown("#### 📝 Выбор блоков")
+            st.markdown("#### 📝 Вибір блоків")
 
             if active_file not in st.session_state['selections']:
                 st.session_state['selections'][active_file] = [True] * len(paragraphs)
@@ -172,8 +172,8 @@ def main():
                     st.session_state['selections'][active_file][i] = is_selected
 
         with col_right:
-            st.markdown("#### 📑 Оригинальный PDF")
-            # Находим объект файла
+            st.markdown("#### 📑 Оригінальний PDF")
+            # Знаходимо об'єкт файлу
             file_obj = next((f for f in uploaded_files if f.name == active_file), None)
             if file_obj:
                 file_obj.seek(0)
@@ -380,52 +380,52 @@ def main():
             """, unsafe_allow_html=True)
 
             # 1. Сортування (показуємо компактні "ручки" для перетягування)
-            # Сортируем элементы по заданному порядку: "Початок документа", "Адреса", потом по алфавиту
+            # Сортуємо елементи за заданим порядком: "Початок документа", "Адреса", потім за алфавітом
             sorted_selected_content = []
 
-            # Сначала добавляем "Початок документа", если он есть
+            # Спочатку додаємо "Початок документа", якщо він є
             for i, item in enumerate(selected_content):
                 if item.get('header') == "Початок документа":
                     sorted_selected_content.append(selected_content[i])
 
-            # Затем добавляем "Адреса", если он есть
+            # Потім додаємо "Адреса", якщо вона є
             for i, item in enumerate(selected_content):
                 if item.get('header') == "Адреса":
                     sorted_selected_content.append(selected_content[i])
 
-            # Затем добавляем остальные элементы по алфавиту
+            # Потім додаємо інші елементи за алфавітом
             other_items = []
             for item in selected_content:
                 if item.get('header') not in ["Початок документа", "Адреса"]:
                     other_items.append(item)
 
-            # Сортируем остальные элементы по заголовку
+            # Сортуємо інші елементи за заголовком
             other_items.sort(key=lambda x: x.get('header', '').lower())
             sorted_selected_content.extend(other_items)
 
-            # Добавляем возможность удаления блоков
+            # Додаємо можливість видалення блоків
             if 'deleted_blocks' not in st.session_state:
                 st.session_state['deleted_blocks'] = set()
 
-            # Отображаем каждый блок с крестиком для удаления
+            # Відображаємо кожен блок з хрестиком для видалення
             for i, item in enumerate(sorted_selected_content):
                 if i not in st.session_state['deleted_blocks']:
                     col1, col2 = st.columns([10, 1])
                     with col1:
-                        # Показываем информацию о блоке
+                        # Показуємо інформацію про блок
                         block_info = f"[ID:{i}] "
                         if item.get('header'):
                             block_info += f"【{item['header']}】 "
                         content_preview = item.get('content', '')[:50] + "..."
                         st.write(block_info + content_preview)
                     with col2:
-                        # Кнопка удаления
+                        # Кнопка видалення
                         if st.button("✖️", key=f"delete_{i}", help="Видалити цей блок"):
                             st.session_state['deleted_blocks'].add(i)
                             st.rerun()
 
-            # Создаем список для сортировки с учетом удаленных блоков
-            # Создаем список оставшихся элементов с индексами
+            # Створюємо список для сортування з урахуванням видалених блоків
+            # Створюємо список елементів, що залишилися, з індексами
             remaining_items = []
             for i, item in enumerate(sorted_selected_content):
                 if i not in st.session_state['deleted_blocks']:
@@ -439,26 +439,26 @@ def main():
                         'label': display_label + content_preview
                     })
 
-            # Применяем сортировку только к оставшимся блокам
+            # Застосовуємо сортування тільки до блоків, що залишилися
             if remaining_items:
-                # Извлекаем только метки для передачи в sort_items
+                # Витягуємо тільки мітки для передачі в sort_items
                 labels_only = [item_info['label'] for item_info in remaining_items]
                 sorted_labels = sort_items(labels_only, direction="vertical")
             else:
                 sorted_labels = []
 
-            # 2. Визначення впорядкованого списку
+            # 2. Визначаємо впорядкований список
             ordered_content = []
             if sorted_labels and len(sorted_labels) > 0:
-                # Восстанавливаем порядок элементов на основе отсортированных меток
+                # Відновлюємо порядок елементів на основі відсортованих міток
                 for label in sorted_labels:
-                    # Найдем соответствующий элемент в списке оставшихся
+                    # Знайдемо відповідний елемент у списку, що залишилися
                     for item_info in remaining_items:
                         if item_info['label'] == label:
                             ordered_content.append(item_info['item'])
                             break
             else:
-                # Если сортировка не применялась, просто исключаем удаленные
+                # Якщо сортування не застосовувалося, просто виключаємо видалені
                 ordered_content = [item for i, item in enumerate(sorted_selected_content) if i not in st.session_state['deleted_blocks']]
 
             # 3. Редагування контенту (ВИДАЛЕНО ЗА ЗАПИТОМ)
@@ -639,7 +639,7 @@ def main():
                             if 'photo_data' in st.session_state:
                                 photo_bytes = base64.b64decode(st.session_state['photo_data'])
                             elif os.path.exists('default_avatar.png'):
-                                # Загружаем фото по умолчанию
+                                # Завантажуємо фото за замовчуванням
                                 with open('default_avatar.png', 'rb') as f:
                                     photo_bytes = f.read()
 
@@ -682,7 +682,7 @@ def main():
                             if 'photo_data' in st.session_state:
                                 photo_bytes = base64.b64decode(st.session_state['photo_data'])
                             elif os.path.exists('default_avatar.png'):
-                                # Загружаем фото по умолчанию
+                                # Завантажуємо фото за замовчуванням
                                 with open('default_avatar.png', 'rb') as f:
                                     photo_bytes = f.read()
 
@@ -705,7 +705,7 @@ def main():
                                 real_estate_data=st.session_state.get('real_estate_data')
                             )
 
-                            # Получаем имя PDF-файла
+                            # Отримуємо ім'я PDF-файлу
                             pdf_filename = get_pdf_filename_from_intro({"Контент": ordered_content})
 
                             st.download_button(
@@ -716,7 +716,7 @@ def main():
                             )
                         except Exception as e:
                             st.error(f"❌ Помилка при створенні PDF: {e}")
-                            # Если прямое создание не работает, используем резервный метод
+                            # Якщо пряме створення не працює, використовуємо резервний метод
                             try:
                                 st.info("Спробуємо альтернативний метод конвертації...")
 
@@ -724,11 +724,11 @@ def main():
                                 if 'photo_data' in st.session_state:
                                     photo_bytes = base64.b64decode(st.session_state['photo_data'])
                                 elif os.path.exists('default_avatar.png'):
-                                    # Загружаем фото по умолчанию
+                                    # Завантажуємо фото за замовчуванням
                                     with open('default_avatar.png', 'rb') as f:
                                         photo_bytes = f.read()
 
-                                # Сначала генерируем DOCX
+                                # Спочатку генеруємо DOCX
                                 family_list = []
                                 if 'family_data' in st.session_state:
                                     for rel_type, rel_data in st.session_state['family_data'].items():
@@ -747,10 +747,10 @@ def main():
                                     real_estate_data=st.session_state.get('real_estate_data')
                                 )
 
-                                # Затем конвертируем в PDF
+                                # Потім конвертуємо в PDF
                                 pdf_data = convert_docx_to_pdf(docx_data)
 
-                                # Получаем имя PDF-файла из имени DOCX-файла
+                                # Отримуємо ім'я PDF-файлу из имени DOCX-файла
                                 from document_generator import get_filename_from_intro
                                 docx_filename = get_filename_from_intro({"Контент": ordered_content})
                                 pdf_filename = get_pdf_filename_from_docx(docx_filename)

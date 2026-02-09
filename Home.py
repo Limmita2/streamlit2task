@@ -18,7 +18,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# Убираем max-width для stMainBlockContainer
+# Прибираємо max-width для stMainBlockContainer
 st.markdown(
     """
     <style>
@@ -35,7 +35,7 @@ def load_apps_config():
     config_path = os.path.join(script_dir, "apps_config.json")
 
     if not os.path.exists(config_path):
-        st.error(f"Файл конфигурации {config_path} не найден. CWD: {os.getcwd()}")
+        st.error(f"Файл конфігурації {config_path} не знайдено. CWD: {os.getcwd()}")
         return []
     with open(config_path, "r", encoding="utf-8") as f:
         return json.load(f)
@@ -47,7 +47,7 @@ def main():
     apps = load_apps_config()
 
     if not apps:
-        st.warning("Нет доступных приложений в конфигурации.")
+        st.warning("Немає доступних додатків у конфігурації.")
         return
 
     # Use columns to display apps in a grid
@@ -63,9 +63,9 @@ def main():
             # Using st.page_link (Requires Streamlit 1.31+)
             page_path = app['page_file']
             if os.path.exists(page_path):
-                st.page_link(page_path, label="Открыть", icon="🚀")
+                st.page_link(page_path, label="Відкрити", icon="🚀")
             else:
-                st.warning(f"Файл {page_path} не найден")
+                st.warning(f"Файл {page_path} не знайдено")
 
 
 if __name__ == "__main__":

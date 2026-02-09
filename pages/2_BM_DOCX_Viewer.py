@@ -23,7 +23,7 @@ def main():
     html_path = os.path.join(bm_dir, "index.html")
 
     if not os.path.exists(html_path):
-        st.error(f"HTML файл не найден: {html_path}")
+        st.error(f"HTML файл не знайдено: {html_path}")
         return
 
     # Read HTML

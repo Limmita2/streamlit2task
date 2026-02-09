@@ -29,10 +29,10 @@ try:
     if hasattr(ipnp_app, 'main'):
         ipnp_app.main()
     else:
-        st.error("В модуле IPNP_v_HTML.app не найдена функция main().")
+        st.error("В модулі IPNP_v_HTML.app не знайдено функцію main().")
 
 except Exception as e:
-    st.error(f"Ошибка при запуске приложения IPNP: {e}")
+    st.error(f"Помилка при запуску додатку IPNP: {e}")
     # Print stack trace for debugging
     import traceback
     st.code(traceback.format_exc())
