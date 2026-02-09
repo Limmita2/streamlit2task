@@ -26,18 +26,18 @@ except ImportError:
 if not dependencies_available:
     import streamlit as st
     st.title("ARKAN v DOCX")
-    st.error("⚠️ Отсутствуют необходимые зависимости для запуска приложения")
+    st.error("⚠️ Відсутні необхідні залежності для запуску додатку")
 
-    st.write("Для установки зависимостей выполните команду:")
+    st.write("Для встановлення залежностей виконайте команду:")
     st.code("pip install -r ARKAN_v_DOCX/requirements.txt", language="bash")
 
-    st.write("Или установите каждую зависимость отдельно:")
+    st.write("Або встановіть кожну залежність окремо:")
     st.code("pip install streamlit openpyxl python-docx", language="bash")
 
     from utils import remove_max_width
     remove_max_width()
 
-    if st.button("🏠 Вернуться на главную"):
+    if st.button("🏠 Повернутися на головну"):
         st.switch_page("Home.py")
 else:
     # Import and run the ARKAN application
@@ -68,7 +68,7 @@ else:
         # Restore original function in case of error
         st.set_page_config = original_set_page_config
         os.chdir(original_cwd)  # Make sure to restore CWD even if there's an error
-        st.error(f"Ошибка при запуске приложения ARKAN: {e}")
+        st.error(f"Помилка при запуску додатку ARKAN: {e}")
         # Print stack trace for debugging
         import traceback
         st.code(traceback.format_exc())

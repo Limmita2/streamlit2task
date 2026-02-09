@@ -26,16 +26,16 @@ import re
 
 def get_filename_from_intro(data: dict) -> str:
     """
-    Извлекает первое слово из блока 'Початок документа' для формирования имени файла.
+    Витягує перше слово з блоку 'Початок документа' для формування імені файлу.
     """
     content_list = data.get("Контент", [])
 
     for item in content_list:
         if item.get("header") == "Початок документа":
             content = item.get("content", "")
-            # Извлекаем первое слово из контента
+            # Витягуємо перше слово з контенту
             first_word = content.split()[0] if content.split() else "Dossier"
-            # Убираем специальные символы из имени файла
+            # Прибираємо спеціальні символи з імені файлу
             import re
             first_word = re.sub(r'[^\w\s-]', '', first_word)
             return f"{first_word}.docx"

@@ -17,7 +17,7 @@ MIN_POINTS_FOR_ROUTE = 2
 # --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
 
 def image_to_base64(uploaded_file) -> str:
-    """Кодирует загруженный файл изображения в Base64."""
+    """Кодує завантажений файл зображення в Base64."""
     if uploaded_file is None:
         return None
     try:
@@ -116,7 +116,7 @@ def generate_map_html(df: pd.DataFrame, logo_base64: str = None):
     df = df.sort_values(by=['date_str', 'datetime']).reset_index(drop=True)
     dates_list = sorted(df['date_str'].unique())
 
-    # Центр карты
+    # Центр карти
     valid_points = df[df['is_valid_coord']]
     if not valid_points.empty:
         center = [valid_points['latitude'].mean(), valid_points['longitude'].mean()]
@@ -140,7 +140,7 @@ def generate_map_html(df: pd.DataFrame, logo_base64: str = None):
         points = list(zip(group_valid['longitude'], group_valid['latitude']))
 
         if len(points) >= MIN_POINTS_FOR_ROUTE:
-            # Пытаемся построить маршрут через OSRM
+            # Намагаємося побудувати маршрут через OSRM
             try:
                 limit_osrm = 80
                 step = max(1, len(points) // limit_osrm)
@@ -273,7 +273,7 @@ def generate_map_html(df: pd.DataFrame, logo_base64: str = None):
       
       function getMapInstance() {{
           if(window.map) return window.map;
-          // Поиск объекта карты Folium в глобальной области
+          // Пошук об'єкта карти Folium в глобальній області
           for(var key in window) {{
              if(window.hasOwnProperty(key) && window[key] && 
                 typeof window[key].flyTo === 'function' && 
@@ -290,7 +290,7 @@ def generate_map_html(df: pd.DataFrame, logo_base64: str = None):
         var rec = window._maim_markers.find(r => r.num === num && r.day === String(day));
         if(rec) {{
           map.setView([rec.lat, rec.lon], 18, {{animate: true, duration: 0.5}});
-          // Подсветка строки таблицы
+          // Підсвічування рядка таблиці
           var rows = document.querySelectorAll('#data-overlay tr');
           rows.forEach(r => r.classList.remove('highlight'));
           var row = document.querySelector('#data-overlay tr[data-num="'+num+'"][data-day="'+day+'"]');
@@ -348,25 +348,25 @@ def generate_map_html(df: pd.DataFrame, logo_base64: str = None):
 
 def main():
     st.title("🗺️ Excel в Карту Маршрута")
-    st.markdown("Загрузите Excel-файл, чтобы построить карту перемещений с таблицей событий.")
+    st.markdown("Завантажте Excel-файл, щоб побудувати карту переміщень з таблицею подій.")
 
     col1, col2 = st.columns([2, 1])
     
     with col1:
-        uploaded_file = st.file_uploader("Перетащите Excel файл (.xlsx)", type=['xls', 'xlsx', 'xlsm'])
+        uploaded_file = st.file_uploader("Перетягніть Excel файл (.xlsx)", type=['xls', 'xlsx', 'xlsm'])
     
     with col2:
-        uploaded_logo = st.file_uploader("Логотип (необязательно)", type=['png', 'jpg', 'jpeg'])
+        uploaded_logo = st.file_uploader("Логотип (необов'язково)", type=['png', 'jpg', 'jpeg'])
 
     if uploaded_file is not None:
         if st.button("🚀 Построить карту", type="primary"):
-            with st.spinner('Чтение файла и построение маршрутов...'):
+            with st.spinner('Читання файлу і побудова маршрутів...'):
                 try:
                     # Определяем движок
                     ext = uploaded_file.name.split('.')[-1].lower()
                     engine = 'openpyxl' if ext in ['xlsx', 'xlsm', 'xltx'] else 'xlrd'
                     
-                    # Читаем имя файла из B8 (для имени выходного файла)
+                    # Читаємо ім'я файлу з B8 (для імені вихідного файлу)
                     out_name = "route_map.html"
                     try:
                         df_name = pd.read_excel(uploaded_file, engine=engine, usecols="B", header=None, skiprows=7, nrows=1)
@@ -376,7 +376,7 @@ def main():
                     except:
                         pass
 
-                    # Перематываем файл в начало и читаем данные
+                    # Перемотуємо файл на початок і читаємо дані
                     uploaded_file.seek(0)
                     try:
                         df = pd.read_excel(uploaded_file, engine=engine, header=None, skiprows=7)
@@ -396,18 +396,18 @@ def main():
                         
                         # Кнопка скачивания
                         st.download_button(
-                            label="💾 Скачать карту (HTML)",
+                            label="💾 Завантажити карту (HTML)",
                             data=html_content,
                             file_name=out_name,
                             mime="text/html"
                         )
                         
-                        # Предпросмотр (iframe)
-                        st.subheader("Предпросмотр")
+                        # Попередній перегляд (iframe)
+                        st.subheader("Попередній перегляд")
                         st.components.v1.html(html_content, height=600, scrolling=True)
 
                 except Exception as e:
-                    st.error(f"Ошибка при обработке: {e}")
+                    st.error(f"Помилка при обробці: {e}")
                     st.exception(e)
 
 if __name__ == "__main__":

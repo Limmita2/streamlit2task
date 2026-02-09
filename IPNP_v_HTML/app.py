@@ -17,7 +17,7 @@ MIN_POINTS_FOR_ROUTE = 2
 # --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
 
 def image_to_base64(uploaded_file) -> str:
-    """Кодирует загруженный файл изображения в Base64."""
+    """Кодує завантажений файл зображення в Base64."""
     if uploaded_file is None:
         return None
     try:
@@ -140,7 +140,7 @@ def generate_map_html(df: pd.DataFrame, logo_base64: str = None):
         points = list(zip(group_valid['longitude'], group_valid['latitude']))
 
         if len(points) >= MIN_POINTS_FOR_ROUTE:
-            # Пытаемся построить маршрут через OSRM
+            # Намагаємося побудувати маршрут через OSRM
             try:
                 limit_osrm = 80
                 step = max(1, len(points) // limit_osrm)
@@ -253,7 +253,7 @@ def generate_map_html(df: pd.DataFrame, logo_base64: str = None):
       #data-overlay header {{ 
         padding:10px 12px; border-bottom:1px solid rgba(0,0,0,0.04); display:flex; 
         justify-content:space-between; align-items:center;
-        cursor: move; /* Указывает, что элемент можно перемещать */
+        cursor: move; /* Вказує, що елемент можна переміщувати */
       }}
       #data-overlay h4 {{ margin:0; font-size:14px; color:#0f1724; }}
       #data-overlay table {{ width:100%; border-collapse:collapse; font-size:13px; }}
@@ -264,12 +264,12 @@ def generate_map_html(df: pd.DataFrame, logo_base64: str = None):
 
     <div id="data-overlay">
       <header>
-        <h4>Данные маршрута</h4>
+        <h4>Дані маршруту</h4>
         <button style="background:transparent;border:none;font-weight:700;cursor:pointer;color:#6b7280" onclick="document.getElementById('data-overlay').style.display='none'">✕</button>
       </header>
       <div style="padding:0 12px 12px 12px;">
         <table>
-          <thead><tr><th>№</th><th>Дата</th><th>Устройство</th></tr></thead>
+          <thead><tr><th>№</th><th>Дата</th><th>Пристрій</th></tr></thead>
           <tbody>{table_rows_html}</tbody>
         </table>
       </div>
@@ -329,7 +329,7 @@ def generate_map_html(df: pd.DataFrame, logo_base64: str = None):
               pos4 = e.clientY;
               document.onmouseup = closeDragElement;
               document.onmousemove = elementDrag;
-              element.style.bottom = 'auto'; // Отключаем bottom/right
+              element.style.bottom = 'auto'; // Вимикаємо bottom/right
               element.style.right = 'auto';
           }}
 
@@ -358,7 +358,7 @@ def generate_map_html(df: pd.DataFrame, logo_base64: str = None):
             makeDraggable(overlay, header);
         }}
         
-        // Клик по таблице
+        // Клік по таблиці
         document.body.addEventListener('click', function(e){{
             var target = e.target.closest('tr.valid-row');
             if(target){{
@@ -366,7 +366,7 @@ def generate_map_html(df: pd.DataFrame, logo_base64: str = None):
             }}
         }});
         
-        // Клик по маркерам (привязка)
+        // Клік по маркерах (прив'язка)
         setTimeout(function(){{
             var map = getMapInstance();
             if(map && window._maim_markers){{
@@ -388,32 +388,32 @@ def generate_map_html(df: pd.DataFrame, logo_base64: str = None):
     el = Element(overlay_html)
     m.get_root().html.add_child(el)
     
-    # Возвращаем HTML как строку
+    # Повертаємо HTML як рядок
     return m.get_root().render()
 
 # --- ИНТЕРФЕЙС ---
 
 def main():
-    st.title("🗺️ Excel в Карту Маршрута")
-    st.markdown("Загрузите Excel-файл, чтобы построить карту перемещений с таблицей событий.")
+    st.title("🗺️ Excel у Карту Маршруту")
+    st.markdown("Завантажте Excel-файл, щоб побудувати карту переміщень з таблицею подій.")
 
     col1, col2 = st.columns([2, 1])
     
     with col1:
-        uploaded_file = st.file_uploader("Перетащите Excel файл (.xlsx)", type=['xls', 'xlsx', 'xlsm'])
+        uploaded_file = st.file_uploader("Перетягніть Excel файл (.xlsx)", type=['xls', 'xlsx', 'xlsm'])
     
     with col2:
-        uploaded_logo = st.file_uploader("Логотип (необязательно)", type=['png', 'jpg', 'jpeg'])
+        uploaded_logo = st.file_uploader("Логотип (необов'язково)", type=['png', 'jpg', 'jpeg'])
 
     if uploaded_file is not None:
-        if st.button("🚀 Построить карту", type="primary"):
-            with st.spinner('Чтение файла и построение маршрутов...'):
+        if st.button("🚀 Побудувати карту", type="primary"):
+            with st.spinner('Читання файлу і побудова маршрутів...'):
                 try:
-                    # Определяем движок
+                    # Визначаємо движок
                     ext = uploaded_file.name.split('.')[-1].lower()
                     engine = 'openpyxl' if ext in ['xlsx', 'xlsm', 'xltx'] else 'xlrd'
                     
-                    # Читаем имя файла из B8 (для имени выходного файла)
+                    # Читаємо ім'я файлу з B8 (для імені вихідного файлу)
                     out_name = "route_map.html"
                     try:
                         df_name = pd.read_excel(uploaded_file, engine=engine, usecols="B", header=None, skiprows=7, nrows=1)
@@ -423,7 +423,7 @@ def main():
                     except:
                         pass
 
-                    # Перематываем файл в начало и читаем данные
+                    # Перемотуємо файл на початок і читаємо дані
                     uploaded_file.seek(0)
                     try:
                         df = pd.read_excel(uploaded_file, engine=engine, header=None, skiprows=7)
@@ -439,22 +439,22 @@ def main():
                     html_content = generate_map_html(df, logo_b64)
 
                     if html_content:
-                        st.success("Карта успешно создана!")
+                        st.success("Карта успішно створена!")
                         
-                        # Кнопка скачивания
+                        # Кнопка завантаження
                         st.download_button(
-                            label="💾 Скачать карту (HTML)",
+                            label="💾 Завантажити карту (HTML)",
                             data=html_content,
                             file_name=out_name,
                             mime="text/html"
                         )
                         
-                        # Предпросмотр (iframe)
-                        st.subheader("Предпросмотр")
+                        # Попередній перегляд (iframe)
+                        st.subheader("Попередній перегляд")
                         st.components.v1.html(html_content, height=600, scrolling=True)
 
                 except Exception as e:
-                    st.error(f"Ошибка при обработке: {e}")
+                    st.error(f"Помилка при обробці: {e}")
                     st.exception(e)
 
 if __name__ == "__main__":
