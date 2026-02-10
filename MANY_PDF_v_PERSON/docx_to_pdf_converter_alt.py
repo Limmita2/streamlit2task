@@ -23,6 +23,40 @@ def convert_docx_to_pdf(docx_bytes: bytes) -> bytes:
     Returns:
         bytes: Байты PDF-документа
     """
+    # Регистрируем системные шрифты с поддержкой кириллицы
+    import os
+    try:
+        # Пробуем Liberation Sans
+        if os.path.exists('/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf'):
+            pdfmetrics.registerFont(TTFont('LiberationSans', '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf'))
+            pdfmetrics.registerFont(TTFont('LiberationSans-Bold', '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf'))
+            pdfmetrics.registerFont(TTFont('LiberationSans-Italic', '/usr/share/fonts/truetype/liberation/LiberationSans-Italic.ttf'))
+            pdfmetrics.registerFont(TTFont('LiberationSans-BoldItalic', '/usr/share/fonts/truetype/liberation/LiberationSans-BoldItalic.ttf'))
+
+            default_font = 'LiberationSans'
+            bold_font = 'LiberationSans-Bold'
+            italic_font = 'LiberationSans-Italic'
+            bold_italic_font = 'LiberationSans-BoldItalic'
+        # Пробуем DejaVu Sans
+        elif os.path.exists('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'):
+            pdfmetrics.registerFont(TTFont('DejaVuSans', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'))
+            pdfmetrics.registerFont(TTFont('DejaVuSans-Bold', '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'))
+            pdfmetrics.registerFont(TTFont('DejaVuSans-Oblique', '/usr/share/fonts/truetype/dejavu/DejaVuSans-Oblique.ttf'))
+            pdfmetrics.registerFont(TTFont('DejaVuSans-BoldOblique', '/usr/share/fonts/truetype/dejavu/DejaVuSans-BoldOblique.ttf'))
+
+            default_font = 'DejaVuSans'
+            bold_font = 'DejaVuSans-Bold'
+            italic_font = 'DejaVuSans-Oblique'
+            bold_italic_font = 'DejaVuSans-BoldOblique'
+        else:
+            raise Exception("Системные шрифты не найдены")
+    except Exception as e:
+        print(f"Помилка завантаження шрифту: {e}")
+        default_font = 'Helvetica'
+        bold_font = 'Helvetica-Bold'
+        italic_font = 'Helvetica-Oblique'
+        bold_italic_font = 'Helvetica-BoldOblique'
+
     # Загружаем DOCX документ
     docx_buffer = io.BytesIO(docx_bytes)
     doc = Document(docx_buffer)
@@ -39,7 +73,7 @@ def convert_docx_to_pdf(docx_bytes: bytes) -> bytes:
     custom_styles['TitleCenter'] = ParagraphStyle(
         'TitleCenter',
         parent=styles['Normal'],
-        fontName='Times-Roman',
+        fontName=default_font,
         fontSize=14,
         alignment=TA_CENTER,
         spaceAfter=6,
@@ -50,7 +84,7 @@ def convert_docx_to_pdf(docx_bytes: bytes) -> bytes:
     custom_styles['BlueHeader'] = ParagraphStyle(
         'BlueHeader',
         parent=styles['Normal'],
-        fontName='Times-Bold',
+        fontName=bold_font,
         fontSize=14,
         alignment=TA_LEFT,
         textColor=colors.white,
@@ -64,7 +98,7 @@ def convert_docx_to_pdf(docx_bytes: bytes) -> bytes:
     custom_styles['NormalIndented'] = ParagraphStyle(
         'NormalIndented',
         parent=styles['Normal'],
-        fontName='Times-Roman',
+        fontName=default_font,
         fontSize=14,
         alignment=TA_JUSTIFY,
         leftIndent=0,
@@ -96,7 +130,7 @@ def convert_docx_to_pdf(docx_bytes: bytes) -> bytes:
                 style = ParagraphStyle(
                     'BlueHeaderTemp',
                     parent=styles['Normal'],
-                    fontName='Times-Bold',
+                    fontName=bold_font,
                     fontSize=14,
                     alignment=TA_LEFT,
                     textColor=colors.white,
@@ -115,7 +149,7 @@ def convert_docx_to_pdf(docx_bytes: bytes) -> bytes:
                     style = ParagraphStyle(
                         'BoldStyle',
                         parent=styles['Normal'],
-                        fontName='Times-Bold',
+                        fontName=bold_font,
                         fontSize=14,
                         alignment=TA_JUSTIFY,
                         leftIndent=0,
@@ -150,7 +184,7 @@ def convert_docx_to_pdf(docx_bytes: bytes) -> bytes:
                         style = ParagraphStyle(
                             'BlueCell',
                             parent=styles['Normal'],
-                            fontName='Times-Bold',
+                            fontName=bold_font,
                             fontSize=14,
                             alignment=TA_LEFT,
                             textColor=colors.white,
@@ -175,7 +209,7 @@ def convert_docx_to_pdf(docx_bytes: bytes) -> bytes:
             if data and len(data) > 0:
                 # Применяем стиль ко всей таблице
                 tbl.setStyle(TableStyle([
-                    ('FONTNAME', (0, 0), (-1, -1), 'Times-Roman'),
+                    ('FONTNAME', (0, 0), (-1, -1), default_font),
                     ('FONTSIZE', (0, 0), (-1, -1), 14),
                     ('VALIGN', (0, 0), (-1, -1), 'TOP'),
                     ('LEFTPADDING', (0, 0), (-1, -1), 4),

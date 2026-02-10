@@ -35,37 +35,54 @@ def create_pdf_directly(data: dict, photo_bytes: bytes = None, border_crossing_d
     # Регистрируем шрифты, поддерживающие кириллицу
     from reportlab.pdfbase.pdfmetrics import registerFontFamily
     from reportlab.pdfbase.ttfonts import TTFont
+    import os
 
-    # Спробуємо використати Liberation Serif (аналог Times New Roman з підтримкою кирилиці)
+    # Пути к системным шрифтам в Linux (устанавливаются через packages.txt)
+    font_paths = [
+        # Liberation шрифты (аналог Times New Roman)
+        '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
+        '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf',
+        '/usr/share/fonts/truetype/liberation/LiberationSans-Italic.ttf',
+        '/usr/share/fonts/truetype/liberation/LiberationSans-BoldItalic.ttf',
+        # DejaVu шрифты
+        '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+        '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+        '/usr/share/fonts/truetype/dejavu/DejaVuSans-Oblique.ttf',
+        '/usr/share/fonts/truetype/dejavu/DejaVuSans-BoldOblique.ttf',
+    ]
+
     try:
-        # Зареєструємо Liberation Serif як основний шрифт
-        pdfmetrics.registerFont(TTFont('LiberationSerif', 'LiberationSerif-Regular.ttf'))
-        pdfmetrics.registerFont(TTFont('LiberationSerif-Bold', 'LiberationSerif-Bold.ttf'))
-        pdfmetrics.registerFont(TTFont('LiberationSerif-Italic', 'LiberationSerif-Italic.ttf'))
-        pdfmetrics.registerFont(TTFont('LiberationSerif-BoldItalic', 'LiberationSerif-BoldItalic.ttf'))
+        # Пробуем Liberation Sans
+        if os.path.exists('/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf'):
+            pdfmetrics.registerFont(TTFont('LiberationSans', '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf'))
+            pdfmetrics.registerFont(TTFont('LiberationSans-Bold', '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf'))
+            pdfmetrics.registerFont(TTFont('LiberationSans-Italic', '/usr/share/fonts/truetype/liberation/LiberationSans-Italic.ttf'))
+            pdfmetrics.registerFont(TTFont('LiberationSans-BoldItalic', '/usr/share/fonts/truetype/liberation/LiberationSans-BoldItalic.ttf'))
 
-        default_font = 'LiberationSerif'
-        bold_font = 'LiberationSerif-Bold'
-        italic_font = 'LiberationSerif-Italic'
-        bold_italic_font = 'LiberationSerif-BoldItalic'
-    except:
-        # Якщо Liberation Serif недоступний, використовуємо DejaVuSans
-        try:
-            pdfmetrics.registerFont(TTFont('DejaVuSerif', 'DejaVuSerif.ttf'))
-            pdfmetrics.registerFont(TTFont('DejaVuSerif-Bold', 'DejaVuSerif-Bold.ttf'))
-            pdfmetrics.registerFont(TTFont('DejaVuSerif-Italic', 'DejaVuSerif-Italic.ttf'))
-            pdfmetrics.registerFont(TTFont('DejaVuSerif-BoldItalic', 'DejaVuSerif-BoldItalic.ttf'))
+            default_font = 'LiberationSans'
+            bold_font = 'LiberationSans-Bold'
+            italic_font = 'LiberationSans-Italic'
+            bold_italic_font = 'LiberationSans-BoldItalic'
+        # Пробуем DejaVu Sans
+        elif os.path.exists('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'):
+            pdfmetrics.registerFont(TTFont('DejaVuSans', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'))
+            pdfmetrics.registerFont(TTFont('DejaVuSans-Bold', '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'))
+            pdfmetrics.registerFont(TTFont('DejaVuSans-Oblique', '/usr/share/fonts/truetype/dejavu/DejaVuSans-Oblique.ttf'))
+            pdfmetrics.registerFont(TTFont('DejaVuSans-BoldOblique', '/usr/share/fonts/truetype/dejavu/DejaVuSans-BoldOblique.ttf'))
 
-            default_font = 'DejaVuSerif'
-            bold_font = 'DejaVuSerif-Bold'
-            italic_font = 'DejaVuSerif-Italic'
-            bold_italic_font = 'DejaVuSerif-BoldItalic'
-        except:
-            # Якщо і DejaVu недоступний, використовуємо стандартний шрифт
-            default_font = 'Helvetica'
-            bold_font = 'Helvetica-Bold'
-            italic_font = 'Helvetica-Oblique'
-            bold_italic_font = 'Helvetica-BoldOblique'
+            default_font = 'DejaVuSans'
+            bold_font = 'DejaVuSans-Bold'
+            italic_font = 'DejaVuSans-Oblique'
+            bold_italic_font = 'DejaVuSans-BoldOblique'
+        else:
+            raise Exception("Системные шрифты не найдены")
+    except Exception as e:
+        # Якщо системні шрифти недоступні, використовуємо стандартний шрифт
+        print(f"Помилка завантаження шрифту: {e}")
+        default_font = 'Helvetica'
+        bold_font = 'Helvetica-Bold'
+        italic_font = 'Helvetica-Oblique'
+        bold_italic_font = 'Helvetica-BoldOblique'
 
     # Створюємо PDF документ в пам'яті
     pdf_buffer = BytesIO()
