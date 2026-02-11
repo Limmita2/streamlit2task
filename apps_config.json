@@ -32,7 +32,7 @@
     {
         "name": "Нерухомість",
         "description": "Обробка файлів нерухомості у формат DOCX",
-        "page_file": "pages/Real_estate_main.py",
+        "page_file": "pages/6_REAL_ESTATE.py",
         "icon": "🏢"
     }
 ]
