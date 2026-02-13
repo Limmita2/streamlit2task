@@ -94,7 +94,7 @@ def process_pdf(pdf_file, temp_dir):
                           "Проспект.", "М-Н", "С-Ще", "Площа", "Просп."]
 
             for slovo in adres.split():
-                if re.search('\d{5}', slovo) is not None:
+                if re.search(r'\d{5}', slovo) is not None:
                     adres = adres.replace(slovo, '')
 
             for ver in verification:

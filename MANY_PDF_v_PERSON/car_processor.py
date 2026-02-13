@@ -17,7 +17,7 @@ except ImportError:
     from image_search import get_car_image
 
 
-def append_car_to_doc(doc: Document, car_data: list, header_name="НАІС ТЗ"):
+def append_car_to_doc(doc: Document, car_data: list, header_name="АМТ (НАІС)"):
     """
     Додає секцію з даними про транспортні засоби до існуючого документа.
 

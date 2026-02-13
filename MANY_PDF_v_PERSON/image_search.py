@@ -123,4 +123,69 @@ def get_car_image(brand: str = "", model: str = "", color: str = "", year: str =
         resized_image = download_and_resize_image(image_bytes, (200, 150))
         return resized_image
 
+    # Если изображение не найдено, возвращаем заглушку
+    try:
+        # Попробуем использовать изображение заглушки по умолчанию для автомобилей
+        default_car_image_path = 'default_avto.jpg'
+        
+        # Проверим, существует ли файл заглушки для автомобилей
+        if os.path.exists(default_car_image_path):
+            with open(default_car_image_path, 'rb') as f:
+                default_img_bytes = f.read()
+                
+                # Изменим размер изображения заглушки
+                output = BytesIO()
+                image = Image.open(BytesIO(default_img_bytes))
+                
+                # Если изображение в режиме RGBA (есть альфа-канал), конвертируем в RGB
+                if image.mode == 'RGBA':
+                    # Создаем белый фон
+                    background = Image.new('RGB', image.size, (255, 255, 255))
+                    # Накладываем изображение на белый фон
+                    background.paste(image, mask=image.split()[-1])  # Используем альфа-канал как маску
+                    image = background
+                elif image.mode != 'RGB':
+                    # Для других режимов конвертируем в RGB
+                    image = image.convert('RGB')
+
+                # Изменяем размер изображения
+                image.thumbnail((200, 150), Image.Resampling.LANCZOS)
+
+                # Сохраняем обратно в байты
+                image.save(output, format='JPEG', quality=85)
+                output.seek(0)
+
+                return output.getvalue()
+        else:
+            # Если файла заглушки для автомобилей нет, используем заглушку по умолчанию
+            if os.path.exists('default_avatar.png'):
+                with open('default_avatar.png', 'rb') as f:
+                    default_img_bytes = f.read()
+                    
+                    # Изменим размер изображения заглушки
+                    output = BytesIO()
+                    image = Image.open(BytesIO(default_img_bytes))
+                    
+                    # Если изображение в режиме RGBA (есть альфа-канал), конвертируем в RGB
+                    if image.mode == 'RGBA':
+                        # Создаем белый фон
+                        background = Image.new('RGB', image.size, (255, 255, 255))
+                        # Накладываем изображение на белый фон
+                        background.paste(image, mask=image.split()[-1])  # Используем альфа-канал как маску
+                        image = background
+                    elif image.mode != 'RGB':
+                        # Для других режимов конвертируем в RGB
+                        image = image.convert('RGB')
+
+                    # Изменяем размер изображения
+                    image.thumbnail((200, 150), Image.Resampling.LANCZOS)
+
+                    # Сохраняем обратно в байты
+                    image.save(output, format='JPEG', quality=85)
+                    output.seek(0)
+
+                    return output.getvalue()
+    except Exception as e:
+        print(f"Ошибка при использовании заглушки: {e}")
+    
     return None

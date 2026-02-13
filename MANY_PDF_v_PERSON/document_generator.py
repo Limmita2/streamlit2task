@@ -480,13 +480,13 @@ def generate_docx(data: dict, photo_bytes: bytes = None, border_crossing_data: l
                             run.font.name = 'Times New Roman'
                             run.font.size = Pt(14)
 
-    # Додаємо секцію про перетин кордону, якщо вона є
-    if border_crossing_data:
-        append_border_crossing_to_doc(doc, border_crossing_data)
-
     # Додаємо секцію про транспортні засоби, якщо вона є
     if car_data:
         append_car_to_doc(doc, car_data)
+
+    # Додаємо секцію про перетин кордону, якщо вона є
+    if border_crossing_data:
+        append_border_crossing_to_doc(doc, border_crossing_data)
 
     buffer = io.BytesIO()
     doc.save(buffer)
