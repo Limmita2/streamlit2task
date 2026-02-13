@@ -17,3 +17,5 @@ beautifulsoup4
 lxml
 docxtopdf
 fonttools
+ddgs
+duckduckgo-search

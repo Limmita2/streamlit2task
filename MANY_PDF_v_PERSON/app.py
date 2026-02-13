@@ -3,6 +3,7 @@ import os
 import io
 import base64
 import time
+import re
 from io import BytesIO
 from pdf_processor import process_pdfs_to_paragraphs
 from document_generator import generate_docx
@@ -15,6 +16,174 @@ from arkan_processor import process_excel_to_data
 import dms_processor
 from dms_processor import extract_dms_data
 from real_estate_processor import parse_real_estate_pdf
+from car_processor import append_car_to_doc
+import pandas as pd
+
+
+# --- ФУНКЦІЇ ДЛЯ ОБРОБКИ ДАНИХ ПРО ТЗ ---
+
+def parse_vehicle_data(text):
+    """Парсить текст та витягує дані про ТЗ"""
+    result = {}
+
+    # Шаблони для пошуку
+    patterns = {
+        'номерний_знак': [
+            r'Державний номер[:\s]*([A-ZА-ЯІЇЄҐ0-9]+)',
+            r'Номерний знак[:\s]*([A-ZА-ЯІЇЄҐ0-9]+)',
+            r'НОМЕРНИЙ ЗНАК[:\s]*([A-ZА-ЯІЇЄҐ0-9]+)',
+        ],
+        'власник': [
+            r'Власник[:\s]*([A-ZА-ЯІЇЄҐ\s]+?)(?=\s*\d{2}\.\d{2}\.\d{4}|\s*$)',
+        ],
+        'дата_народження': [
+            r'Дата народження[:\s]*(\d{2}\.\d{2}\.\d{4})',
+            r'Власник[:\s]*[A-ZА-ЯІЇЄҐ\s]+(\d{2}\.\d{2}\.\d{4})',
+        ],
+        'іпн': [
+            r'ІПН[:\s]*(\d+)',
+            r'ІПН/ЄДРПОУ[:\s]*(\d+)',
+        ],
+        'місце_реєстрації': [
+            r'Адреса власника[:\s]*([^\n]+)',
+            r'Адреса реєстрації ТЗ[:\s]*([^\n]+)',
+        ],
+        'марка': [
+            r'Марка/модель ТЗ[:\s]*([A-Z]+)',
+        ],
+        'модель': [
+            r'Марка/модель ТЗ[:\s]*[A-Z]+\s+([A-Z0-9]+(?:\s+[A-Z0-9.]+)?)',
+        ],
+        'vin': [
+            r'vin ТЗ[:\s]*([A-Z0-9]+)',
+            r'VIN[:\s]*([A-Z0-9]+)',
+        ],
+        'колір': [
+            r'Колір ТЗ[:\s]*([A-ZА-ЯІЇЄҐ]+)',
+            r'Колір[:\s]*([A-ZА-ЯІЇЄҐ]+)',
+        ],
+        'рік_випуску': [
+            r'Рік випуску[:\s]*(\d{4})',
+            r'Рік випуску[:\s]*([0-9]{4})',
+            r'Рік[:\s]*випуску[:\s]*(\d{4})',
+            r'(\d{4})\s*рік випуску',
+            r'рік випуску.*?(\d{4})',
+            r'(\d{4})\s*р.',
+            r'(\d{4})\s*року',
+        ],
+    }
+
+    for field, field_patterns in patterns.items():
+        for pattern in field_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                result[field] = match.group(1).strip()
+                break
+
+    # Спеціальна обробка для марка/модель з тексту
+    if 'марка' not in result:
+        match = re.search(r'Марка/модель ТЗ[:\s]*([^\n]+)', text, re.IGNORECASE)
+        if match:
+            full = match.group(1).strip()
+            parts = full.split()
+            if len(parts) >= 1:
+                result['марка'] = parts[0]
+            if len(parts) >= 2:
+                result['модель'] = ' '.join(parts[1:])
+
+    return result
+
+
+def parse_excel_file(df):
+    """Парсить Excel файл специфічного формату"""
+    result = {}
+
+    # Перетворюємо DataFrame у словник для пошуку
+    text = df.to_string()
+
+    # Проходимо по всіх клітинках
+    for idx, row in df.iterrows():
+        for col_idx, cell in enumerate(row):
+            if pd.notna(cell):
+                cell_str = str(cell).strip()
+
+                # Номерний знак
+                if 'НОМЕРНИЙ ЗНАК' in cell_str.upper():
+                    # Значення в наступній колонці
+                    if col_idx + 1 < len(row) and pd.notna(row.iloc[col_idx + 1]):
+                        result['номерний_знак'] = str(row.iloc[col_idx + 1]).strip()
+
+                # Власник
+                if 'Власник' in cell_str and ':' in cell_str:
+                    match = re.search(r'Власник[:\s]*([A-ZА-ЯІЇЄҐ\s]+)', cell_str)
+                    if match:
+                        result['власник'] = match.group(1).strip()
+
+                # Дата народження
+                if 'Дата народження' in cell_str:
+                    match = re.search(r'(\d{2}\.\d{2}\.\d{4})', cell_str)
+                    if match:
+                        result['дата_народження'] = match.group(1)
+
+                # ІПН
+                if 'ІПН' in cell_str:
+                    # Шукаємо в тій самій клітинці
+                    match = re.search(r'ІПН[:\s]*(\d+)', cell_str)
+                    if match:
+                        result['іпн'] = match.group(1)
+                    # Або в наступній клітинці
+                    elif col_idx + 1 < len(row) and pd.notna(row.iloc[col_idx + 1]):
+                        val = str(row.iloc[col_idx + 1]).strip()
+                        if val.isdigit():
+                            result['іпн'] = val
+
+                # Місце реєстрації
+                if 'Місце реєстрації' in cell_str:
+                    match = re.search(r'Місце реєстрації[:\s]*(.+)', cell_str)
+                    if match:
+                        result['місце_реєстрації'] = match.group(1).strip()
+
+                # Марка
+                if cell_str.strip() == 'Марка':
+                    # Значення в наступній колонці
+                    if col_idx + 1 < len(row) and pd.notna(row.iloc[col_idx + 1]):
+                        result['марка'] = str(row.iloc[col_idx + 1]).strip()
+
+                # Модель
+                if cell_str.strip() == 'Модель':
+                    if col_idx + 1 < len(row) and pd.notna(row.iloc[col_idx + 1]):
+                        result['модель'] = str(row.iloc[col_idx + 1]).strip()
+
+                # VIN
+                if cell_str.strip() == 'VIN':
+                    if col_idx + 1 < len(row) and pd.notna(row.iloc[col_idx + 1]):
+                        result['vin'] = str(row.iloc[col_idx + 1]).strip()
+
+                # Колір
+                if cell_str.strip() == 'Колір':
+                    if col_idx + 1 < len(row) and pd.notna(row.iloc[col_idx + 1]):
+                        result['колір'] = str(row.iloc[col_idx + 1]).strip()
+
+                # Рік випуску
+                if cell_str.strip() == 'Рік випуску':
+                    if col_idx + 1 < len(row) and pd.notna(row.iloc[col_idx + 1]):
+                        result['рік_випуску'] = str(row.iloc[col_idx + 1]).strip()
+                elif 'Рік випуску' in cell_str:
+                    match = re.search(r'(\d{4})', cell_str)
+                    if match:
+                        result['рік_випуску'] = match.group(1)
+
+    # Якщо не знайшли через структуру, шукаємо через текст
+    if not result:
+        result = parse_vehicle_data(text)
+
+    # Дозаповнюємо пропущені поля з тексту
+    text_result = parse_vehicle_data(text)
+    for key, value in text_result.items():
+        if key not in result or not result[key]:
+            result[key] = value
+
+    return result
 
 
 # Налаштування сторінки
@@ -393,10 +562,17 @@ def main():
                 if item.get('header') == "Адреса":
                     sorted_selected_content.append(selected_content[i])
 
+            # Потім додаємо "АВТО (НАІС ТЗ)", якщо воно є
+            for i, item in enumerate(selected_content):
+                header = item.get('header', '').strip().lower()
+                if header in ["авто наіс тз", "авто (наіс тз)", "база наіс тз"]:
+                    sorted_selected_content.append(selected_content[i])
+
             # Потім додаємо інші елементи за алфавітом
             other_items = []
             for item in selected_content:
-                if item.get('header') not in ["Початок документа", "Адреса"]:
+                header = item.get('header', '').strip().lower()
+                if header not in ["початок документа", "адреса"] and header not in ["авто наіс тз", "авто (наіс тз)", "база наіс тз"]:
                     other_items.append(item)
 
             # Сортуємо інші елементи за заголовком
@@ -474,7 +650,7 @@ def main():
         st.markdown("---")
         st.header("6️⃣ Документи")
         
-        tab_dms, tab_arkan, tab_real_estate = st.tabs(["🏛️ ДМС", "🚢 Аркан", "🏢 Нерухомість"])
+        tab_dms, tab_arkan, tab_real_estate, tab_car = st.tabs(["🏛️ ДМС", "🚢 Аркан", "🏢 Нерухомість", "🚗 АВТО"])
 
         with tab_dms:
             uploaded_dms = st.file_uploader(
@@ -581,6 +757,191 @@ def main():
                     st.session_state['real_estate_data'] = None
                     st.session_state['last_uploaded_real_estate'] = None
                     st.rerun()
+
+        with tab_car:
+            # Ініціалізація session_state для даних про ТЗ
+            if 'car_files_data' not in st.session_state:
+                st.session_state['car_files_data'] = []
+            if 'car_manual_entries' not in st.session_state:
+                st.session_state['car_manual_entries'] = []
+
+            st.markdown("##### **Або додати вручну:**")
+
+            # Кнопка додавання запису
+            if st.button("➕ Додати запис (ручний ввід)", key="add_manual_car"):
+                st.session_state['car_manual_entries'].append({
+                    'text': '',
+                    'source': 'manual'
+                })
+                st.rerun()
+
+            # Показуємо вручну додані записи
+            if st.session_state.get('car_manual_entries'):
+                st.markdown("**Ручний ввід:**")
+
+                for idx in range(len(st.session_state['car_manual_entries'])):
+                    item = st.session_state['car_manual_entries'][idx]
+
+                    col1, col2 = st.columns([2, 1])
+
+                    with col1:
+                        # Текстове поле
+                        text_key = f"manual_car_text_{idx}"
+                        new_text = st.text_area(
+                            f"Запис #{idx + 1}:",
+                            value=item.get('text', ''),
+                            key=text_key,
+                            height=150
+                        )
+                        st.session_state['car_manual_entries'][idx]['text'] = new_text
+
+                    with col2:
+                        # Кнопка видалення
+                        if st.button(f"❌ Видалити #{idx + 1}", key=f"delete_manual_car_{idx}"):
+                            st.session_state['car_manual_entries'].pop(idx)
+                            st.rerun()
+
+            st.markdown("---")
+            st.markdown("##### **Завантажити файли (Excel або текстові)**")
+            uploaded_car_files = st.file_uploader(
+                "Завантажте файли (Excel або текстові)",
+                type=['xlsx', 'xls', 'txt'],
+                accept_multiple_files=True,
+                key="car_files_uploader"
+            )
+
+            # Обробка завантажених файлів
+            if uploaded_car_files:
+                st.write(f"🔍 Вибрано файлів: **{len(uploaded_car_files)}**")
+                for f in uploaded_car_files:
+                    st.write(f"   • `{f.name}`")
+
+            if st.button("🔄 Обробити файли", type="primary", key="process_car_files_btn") and uploaded_car_files:
+                with st.spinner("Обробка файлів..."):
+                    all_car_data = []
+
+                    for uploaded_file in uploaded_car_files:
+                        try:
+                            st.write(f"⏳ Обробка `{uploaded_file.name}`...")
+
+                            # Визначаємо тип файлу
+                            file_ext = os.path.splitext(uploaded_file.name)[1].lower()
+
+                            if file_ext == '.txt':
+                                # Текстовий файл - парсинг даних про ТЗ
+                                content = uploaded_file.read().decode('utf-8')
+                                car_data = parse_vehicle_data(content)
+                                if car_data:
+                                    car_data['source'] = 'file'
+                                    car_data['filename'] = uploaded_file.name
+                                    all_car_data.append(car_data)
+                                    st.success(f"✅ `{uploaded_file.name}` - текстовий файл оброблено")
+
+                            elif file_ext in ['.xls', '.xlsx', '.xlsm']:
+                                # Excel файл
+                                try:
+                                    if file_ext == '.xls':
+                                        df = pd.read_excel(uploaded_file, engine='xlrd')
+                                    else:
+                                        df = pd.read_excel(uploaded_file, engine='openpyxl')
+                                    car_data = parse_excel_file(df)
+                                    if car_data:
+                                        car_data['source'] = 'file'
+                                        car_data['filename'] = uploaded_file.name
+                                        all_car_data.append(car_data)
+                                        st.success(f"✅ `{uploaded_file.name}` - Excel файл оброблено")
+                                except Exception as e:
+                                    st.error(f"❌ Помилка читання Excel `{uploaded_file.name}`: {e}")
+                                    # Пробуємо як текст
+                                    try:
+                                        uploaded_file.seek(0)
+                                        content = uploaded_file.read().decode('utf-8', errors='ignore')
+                                        car_data = parse_vehicle_data(content)
+                                        if car_data:
+                                            car_data['source'] = 'file'
+                                            car_data['filename'] = uploaded_file.name
+                                            all_car_data.append(car_data)
+                                    except Exception as e2:
+                                        st.error(f"❌ Помилка обробки `{uploaded_file.name}` як текст: {e2}")
+
+                            else:
+                                st.warning(f"⚠️ Невідомий формат файлу `{uploaded_file.name}`")
+
+                        except Exception as e:
+                            st.error(f"❌ Помилка обробки файлу `{uploaded_file.name}`: {e}")
+
+                    if all_car_data:
+                        st.session_state['car_files_data'].extend(all_car_data)
+                        st.success(f"✅ Всього оброблено: {len(all_car_data)} записів")
+                        st.rerun()
+                    elif not all_car_data:
+                        st.warning("⚠️ Не вдалося витягти дані з жодного файлу. Перевірте формат даних.")
+
+            # Об'єднуємо дані з файлів та ручного вводу
+            all_car_results = []
+
+            # Додаємо дані з файлів
+            for item in st.session_state.get('car_files_data', []):
+                all_car_results.append(item)
+
+            # Додаємо дані з ручного вводу
+            for item in st.session_state.get('car_manual_entries', []):
+                if item.get('text'):
+                    parsed_data = parse_vehicle_data(item['text'])
+                    if parsed_data:
+                        parsed_data['source'] = 'manual'
+                        all_car_results.append(parsed_data)
+
+            if all_car_results:
+                st.info(f"📊 Всього записів про ТЗ: {len(all_car_results)}")
+
+                # Відображаємо результати
+                for idx, item in enumerate(all_car_results):
+                    with st.expander(f"🚗 ТЗ #{idx + 1}", expanded=False):
+                        col1, col2 = st.columns([2, 1])
+
+                        with col1:
+                            st.write("**Поля:**")
+                            for key, value in item.items():
+                                if key not in ['source', 'filename'] and value:
+                                    st.write(f"• **{key}:** {value}")
+
+                            if item.get('source') == 'file':
+                                st.write(f"• **Джерело:** Файл `{item.get('filename', '')}`")
+                            else:
+                                st.write(f"• **Джерело:** Ручний ввід")
+
+                        with col2:
+                            # Форматований вивід
+                            formatted_parts = []
+                            if item.get('номерний_знак'):
+                                formatted_parts.append(f"Номерний знак: {item['номерний_знак']}")
+                            if item.get('марка') or item.get('модель'):
+                                brand_model = f"{item.get('марка', '')} {item.get('модель', '')}".strip()
+                                formatted_parts.append(f"ТЗ: {brand_model}")
+                            if item.get('vin'):
+                                formatted_parts.append(f"VIN: {item['vin']}")
+                            if item.get('колір'):
+                                formatted_parts.append(f"Колір: {item['колір']}")
+                            
+                            if item.get('рік_випуску'):
+                                formatted_parts.append(f"Рік випуску: {item['рік_випуску']}")
+
+                            formatted_text = ', '.join(formatted_parts) + '.' if formatted_parts else 'Немає даних'
+                            st.success(formatted_text)
+
+            # Зберігаємо об'єднані дані в session_state для експорту
+            if all_car_results:
+                st.session_state['combined_car_data'] = all_car_results
+            else:
+                st.session_state['combined_car_data'] = None
+
+            # Кнопка очищення
+            if st.button("🧹 Очистити всі дані про ТЗ", key="clear_all_car_data"):
+                st.session_state['car_files_data'] = []
+                st.session_state['car_manual_entries'] = []
+                st.session_state['combined_car_data'] = None
+                st.rerun()
 
         # Секція 7: Родинні зв'язки
         st.markdown("---")
@@ -747,7 +1108,8 @@ def main():
                                 border_crossing_data=st.session_state.get('border_crossing_data'),
                                 dms_data=st.session_state.get('dms_data'),
                                 family_data=family_list,
-                                real_estate_data=st.session_state.get('real_estate_data')
+                                real_estate_data=st.session_state.get('real_estate_data'),
+                                car_data=st.session_state.get('combined_car_data')
                             )
 
                             # Получаем имя файла из блока "Початок документа"
@@ -811,7 +1173,8 @@ def main():
                                 border_crossing_data=st.session_state.get('border_crossing_data'),
                                 dms_data=st.session_state.get('dms_data'),
                                 family_data=family_list,
-                                real_estate_data=st.session_state.get('real_estate_data')
+                                real_estate_data=st.session_state.get('real_estate_data'),
+                                car_data=st.session_state.get('combined_car_data')
                             )
 
                             # Отримуємо ім'я PDF-файлу
@@ -864,7 +1227,8 @@ def main():
                                     border_crossing_data=st.session_state.get('border_crossing_data'),
                                     dms_data=st.session_state.get('dms_data'),
                                     family_data=family_list,
-                                    real_estate_data=st.session_state.get('real_estate_data')
+                                    real_estate_data=st.session_state.get('real_estate_data'),
+                                    car_data=st.session_state.get('combined_car_data')
                                 )
 
                                 # Потім конвертуємо в PDF

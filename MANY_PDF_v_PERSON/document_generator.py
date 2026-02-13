@@ -19,7 +19,10 @@ from datetime import datetime
 from arkan_processor import append_border_crossing_to_doc
 from dms_processor import append_dms_to_doc
 from real_estate_processor import append_real_estate_to_doc
-
+try:
+    from .car_processor import append_car_to_doc
+except ImportError:
+    from car_processor import append_car_to_doc
 
 
 import re
@@ -44,7 +47,7 @@ def get_filename_from_intro(data: dict) -> str:
     return "Dossier.docx"
 
 
-def generate_docx(data: dict, photo_bytes: bytes = None, border_crossing_data: list = None, dms_data: dict = None, family_data: list = None, real_estate_data: list = None) -> bytes:
+def generate_docx(data: dict, photo_bytes: bytes = None, border_crossing_data: list = None, dms_data: dict = None, family_data: list = None, real_estate_data: list = None, car_data: list = None) -> bytes:
     """
     Генерує документ Word з вибраних абзаців.
     """
@@ -480,6 +483,10 @@ def generate_docx(data: dict, photo_bytes: bytes = None, border_crossing_data: l
     # Додаємо секцію про перетин кордону, якщо вона є
     if border_crossing_data:
         append_border_crossing_to_doc(doc, border_crossing_data)
+
+    # Додаємо секцію про транспортні засоби, якщо вона є
+    if car_data:
+        append_car_to_doc(doc, car_data)
 
     buffer = io.BytesIO()
     doc.save(buffer)

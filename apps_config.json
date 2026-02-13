@@ -1,25 +1,25 @@
 [
     {
         "name": "IPNP Application",
-        "description": "Обробка маршрута з ІПНП та HTML генерацією.",
+        "description": "Обробка маршруту з ІПНП та HTML генерацією.",
         "page_file": "pages/1_IPNP_Application.py",
         "icon": "📝"
     },
     {
         "name": "BM DOCX Viewer",
-        "description": "Обробка архивів з БМ у форматі DOCX",
+        "description": "Обробка архівів з БМ у форматі DOCX",
         "page_file": "pages/2_BM_DOCX_Viewer.py",
         "icon": "📄"
     },
     {
         "name": "Person PDF Matcher",
-        "description": "Обробка профіля на особу з ІПНП",
+        "description": "Обробка профілю на особу з ІПНП",
         "page_file": "pages/3_Person_PDF_Matcher.py",
         "icon": "👥"
     },
     {
         "name": "DMS v WORD",
-        "description": "Обробка ДМС файлів у форматі WORD",
+        "description": "Обробка ДМС та PDF файлів у форматі WORD",
         "page_file": "pages/4_DMS_WORD_Application.py",
         "icon": "🪪"
     },
@@ -28,6 +28,12 @@
         "description": "Обробка Аркан у форматі WORD",
         "page_file": "pages/ARKAN_v_DOCX.py",
         "icon": "🌅"
+    },
+    {
+        "name": "CAR Technical",
+        "description": "Обробка даних про транспортні засоби з автоматичним пошуком зображень за кольором та маркою/моделлю",
+        "page_file": "pages/5_CAR_TECHNICAL.py",
+        "icon": "🚗"
     },
     {
         "name": "Нерухомість",

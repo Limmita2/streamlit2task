@@ -21,7 +21,7 @@ def format_text_with_styles(text, default_font, bold_font, italic_font, bold_ita
     return text
 
 
-def create_pdf_directly(data: dict, photo_bytes: bytes = None, border_crossing_data: list = None, dms_data: dict = None, family_data: list = None, real_estate_data: list = None) -> bytes:
+def create_pdf_directly(data: dict, photo_bytes: bytes = None, border_crossing_data: list = None, dms_data: dict = None, family_data: list = None, real_estate_data: list = None, car_data: list = None) -> bytes:
     """
     Створює PDF напряму з даних, оминаючи DOCX.
 
@@ -443,6 +443,12 @@ def create_pdf_directly(data: dict, photo_bytes: bytes = None, border_crossing_d
         elements.append(Spacer(1, 12))
         elements.append(Paragraph("РОДИННІ ЗВ'ЯЗКИ", blue_header_style))
         elements.append(Paragraph("Дані про родинні зв'язки додано до DOCX версії документа. Для повного відображення використовуйте DOCX або альтернативний метод PDF.", normal_justified_style))
+
+    # Додаємо інформацію про транспортні засоби, якщо вона є
+    if car_data:
+        elements.append(Spacer(1, 12))
+        elements.append(Paragraph("НАІС ТЗ", blue_header_style))
+        elements.append(Paragraph(f"Знайдено транспортних засобів: {len(car_data)}. Для повного відображення даних про транспортні засоби використовуйте DOCX або альтернативний метод PDF.", normal_justified_style))
 
     # Будуємо PDF
     doc_template.build(elements)
