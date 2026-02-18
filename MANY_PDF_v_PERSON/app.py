@@ -1,12 +1,11 @@
 import streamlit as st
 import os
 import io
-import base64
 import time
 import re
 from io import BytesIO
 from pdf_processor import process_pdfs_to_paragraphs
-from document_generator import generate_docx
+from document_generator import generate_docx, generate_empty_dossier, EMPTY_DOSSIER_BLOCKS, BLOCK_MAPPING, get_filename_from_intro
 from docx_to_pdf_converter import convert_docx_to_pdf, get_pdf_filename_from_docx
 from direct_pdf_creator import create_pdf_directly, get_pdf_filename_from_intro
 from PIL import Image
@@ -259,8 +258,28 @@ def cleanup_temp_photos(exclude_path=None):
 def main():
     # Очищення старих фото більше не потрібно, оскільки фото зберігаються в session_state
 
-    # Заголовок
-    st.title("📄 Генератор особистого досьє з PDF")
+    # Заголовок з чекбоксом у правій частині
+    col_title, col_checkbox = st.columns([3, 2])
+    with col_title:
+        st.title("📄 Генератор особистого досьє з PDF")
+    with col_checkbox:
+        st.markdown("<br>", unsafe_allow_html=True)
+        # Ініціалізація стану чекбокса
+        if 'empty_dossier_mode' not in st.session_state:
+            st.session_state['empty_dossier_mode'] = False
+        
+        # Визначаємо, чи завантажені PDF файли
+        has_uploaded_files = st.session_state.get('uploaded_files_count', 0) > 0
+        
+        # Чекбокс неактивний, якщо є завантажені PDF
+        empty_mode = st.checkbox(
+            "Створити порожнє досьє",
+            value=st.session_state['empty_dossier_mode'],
+            disabled=has_uploaded_files,
+            help="Створює досьє з порожніми блоками. Неактивний при завантажених PDF."
+        )
+        st.session_state['empty_dossier_mode'] = empty_mode
+
     st.markdown("---")
 
     # Основна область
@@ -273,6 +292,9 @@ def main():
         accept_multiple_files=True,
         help="Можна завантажити кілька файлів одночасно"
     )
+
+    # Зберігаємо кількість файлів для контролю чекбокса
+    st.session_state['uploaded_files_count'] = len(uploaded_files) if uploaded_files else 0
 
     if uploaded_files:
         st.success(f"✅ Завантажено файлів: {len(uploaded_files)}")
@@ -360,6 +382,8 @@ def main():
                         selected_content.append(block)
     else:
         selected_content = []
+
+    ordered_content = []
 
     # ПЕРЕНЕСЕНО СЮДИ: Секція завантаження фото (завжди доступна після вибору файлів або відразу)
     st.markdown("---")
@@ -526,6 +550,8 @@ def main():
             st.image('default_avatar.png', caption="Фото за замовчуванням", width=150)
 
     # Повертаємо логіку Секції 5 (якщо є вибраний контент)
+    show_advanced = ('processing_done' in st.session_state and st.session_state['processing_done']) or st.session_state.get('empty_dossier_mode', False)
+    
     if 'processing_done' in st.session_state and st.session_state['processing_done']:
 
         # Секция сортування
@@ -644,8 +670,8 @@ def main():
         else:
             ordered_content = []
 
-        # Секція 6: Перетин кордону України
-        st.markdown("---")
+    # Секції 6, 7, 8 показуємо якщо processing_done або empty_dossier_mode
+    if show_advanced:
         # Секція 6: Додаткові дані (ДМС та Аркан)
         st.markdown("---")
         st.header("6️⃣ Документи")
@@ -1065,8 +1091,11 @@ def main():
         st.markdown("---")
         st.header("8️⃣ Експорт досьє")
 
-        if not ordered_content:
-            st.info("Виберіть хоча б один блок для формування досьє")
+        # Визначаємо, чи можемо експортувати
+        can_export = bool(ordered_content) or st.session_state.get('empty_dossier_mode', False)
+        
+        if not can_export:
+            st.info("Виберіть хоча б один блок для формування досьє або активуйте 'Створити порожнє досьє'")
         else:
             col1, col2 = st.columns(2)
 
@@ -1078,7 +1107,6 @@ def main():
                             if 'photo_data' in st.session_state:
                                 photo_bytes = base64.b64decode(st.session_state['photo_data'])
                             elif os.path.exists('default_avatar.png'):
-                                # Завантажуємо фото за замовчуванням
                                 with open('default_avatar.png', 'rb') as f:
                                     photo_bytes = f.read()
 
@@ -1091,7 +1119,6 @@ def main():
                                             'info': rel_item['info'],
                                             'photo_bytes': rel_item['photo_bytes']
                                         })
-                            # Додаємо вручну введені дані
                             if 'family_manual_data' in st.session_state:
                                 for rel_type, manual_list in st.session_state['family_manual_data'].items():
                                     for manual_item in manual_list:
@@ -1102,19 +1129,51 @@ def main():
                                                 'photo_bytes': manual_item.get('photo_bytes')
                                             })
 
-                            docx_data = generate_docx(
-                                {"Контент": ordered_content},
-                                photo_bytes=photo_bytes,
-                                border_crossing_data=st.session_state.get('border_crossing_data'),
-                                dms_data=st.session_state.get('dms_data'),
-                                family_data=family_list,
-                                real_estate_data=st.session_state.get('real_estate_data'),
-                                car_data=st.session_state.get('combined_car_data')
-                            )
+                            # Визначаємо заповнені блоки з PDF
+                            filled_blocks = {}
+                            if ordered_content:
+                                for item in ordered_content:
+                                    header = item.get('header', '').strip()
+                                    content = item.get('content', '')
+                                    if header in BLOCK_MAPPING:
+                                        mapped_header = BLOCK_MAPPING[header]
+                                        if mapped_header in filled_blocks:
+                                            filled_blocks[mapped_header] += "\n" + content
+                                        else:
+                                            filled_blocks[mapped_header] = content
+                                    else:
+                                        header_lower = header.lower()
+                                        for pdf_header, dossier_header in BLOCK_MAPPING.items():
+                                            if pdf_header.lower() == header_lower:
+                                                if dossier_header in filled_blocks:
+                                                    filled_blocks[dossier_header] += "\n" + content
+                                                else:
+                                                    filled_blocks[dossier_header] = content
+                                                break
 
-                            # Получаем имя файла из блока "Початок документа"
-                            from document_generator import get_filename_from_intro
-                            filename = get_filename_from_intro({"Контент": ordered_content})
+                            # Якщо режим порожнього досьє або немає контенту з PDF
+                            if st.session_state.get('empty_dossier_mode') or not ordered_content:
+                                docx_data = generate_empty_dossier(
+                                    photo_bytes=photo_bytes,
+                                    border_crossing_data=st.session_state.get('border_crossing_data'),
+                                    dms_data=st.session_state.get('dms_data'),
+                                    family_data=family_list,
+                                    real_estate_data=st.session_state.get('real_estate_data'),
+                                    car_data=st.session_state.get('combined_car_data'),
+                                    filled_blocks=filled_blocks
+                                )
+                                filename = "Dossier.docx"
+                            else:
+                                docx_data = generate_docx(
+                                    {"Контент": ordered_content},
+                                    photo_bytes=photo_bytes,
+                                    border_crossing_data=st.session_state.get('border_crossing_data'),
+                                    dms_data=st.session_state.get('dms_data'),
+                                    family_data=family_list,
+                                    real_estate_data=st.session_state.get('real_estate_data'),
+                                    car_data=st.session_state.get('combined_car_data')
+                                )
+                                filename = get_filename_from_intro({"Контент": ordered_content})
 
                             st.download_button(
                                 label="💾 Зберегти DOCX",
@@ -1133,18 +1192,8 @@ def main():
                             if 'photo_data' in st.session_state:
                                 photo_bytes = base64.b64decode(st.session_state['photo_data'])
                             elif os.path.exists('default_avatar.png'):
-                                # Завантажуємо фото за замовчуванням
                                 with open('default_avatar.png', 'rb') as f:
                                     photo_bytes = f.read()
-
-                            family_list = []
-                            if 'family_data' in st.session_state:
-                                for rel_type, rel_data in st.session_state['family_data'].items():
-                                    family_list.append({
-                                        'relative_type': rel_type,
-                                        'info': rel_data['info'],
-                                        'photo_bytes': rel_data['photo_bytes']
-                                    })
 
                             family_list = []
                             if 'family_data' in st.session_state:
@@ -1155,7 +1204,6 @@ def main():
                                             'info': rel_item['info'],
                                             'photo_bytes': rel_item['photo_bytes']
                                         })
-                            # Додаємо вручну введені дані
                             if 'family_manual_data' in st.session_state:
                                 for rel_type, manual_list in st.session_state['family_manual_data'].items():
                                     for manual_item in manual_list:
@@ -1166,61 +1214,30 @@ def main():
                                                 'photo_bytes': manual_item.get('photo_bytes')
                                             })
 
-                            # Пробуем создать PDF напрямую из данных
-                            pdf_data = create_pdf_directly(
-                                {"Контент": ordered_content},
-                                photo_bytes=photo_bytes,
-                                border_crossing_data=st.session_state.get('border_crossing_data'),
-                                dms_data=st.session_state.get('dms_data'),
-                                family_data=family_list,
-                                real_estate_data=st.session_state.get('real_estate_data'),
-                                car_data=st.session_state.get('combined_car_data')
-                            )
+                            filled_blocks = {}
+                            if ordered_content:
+                                for item in ordered_content:
+                                    header = item.get('header', '').strip()
+                                    content = item.get('content', '')
+                                    if header in BLOCK_MAPPING:
+                                        mapped_header = BLOCK_MAPPING[header]
+                                        if mapped_header in filled_blocks:
+                                            filled_blocks[mapped_header] += "\n" + content
+                                        else:
+                                            filled_blocks[mapped_header] = content
 
-                            # Отримуємо ім'я PDF-файлу
-                            pdf_filename = get_pdf_filename_from_intro({"Контент": ordered_content})
-
-                            st.download_button(
-                                label="💾 Зберегти PDF(ІПНП) ",
-                                data=pdf_data,
-                                file_name=pdf_filename,
-                                mime="application/pdf"
-                            )
-                        except Exception as e:
-                            st.error(f"❌ Помилка при створенні PDF: {e}")
-                            # Якщо пряме створення не працює, використовуємо резервний метод
-                            try:
-                                st.info("Спробуємо альтернативний метод конвертації...")
-
-                                photo_bytes = None
-                                if 'photo_data' in st.session_state:
-                                    photo_bytes = base64.b64decode(st.session_state['photo_data'])
-                                elif os.path.exists('default_avatar.png'):
-                                    # Завантажуємо фото за замовчуванням
-                                    with open('default_avatar.png', 'rb') as f:
-                                        photo_bytes = f.read()
-
-                                # Спочатку генеруємо DOCX
-                                family_list = []
-                                if 'family_data' in st.session_state:
-                                    for rel_type, rel_data_list in st.session_state['family_data'].items():
-                                        for rel_item in rel_data_list:
-                                            family_list.append({
-                                                'relative_type': rel_type,
-                                                'info': rel_item['info'],
-                                                'photo_bytes': rel_item['photo_bytes']
-                                            })
-                                # Додаємо вручну введені дані
-                                if 'family_manual_data' in st.session_state:
-                                    for rel_type, manual_list in st.session_state['family_manual_data'].items():
-                                        for manual_item in manual_list:
-                                            if manual_item.get('text') or manual_item.get('photo_bytes'):
-                                                family_list.append({
-                                                    'relative_type': rel_type,
-                                                    'manual_text': manual_item.get('text', ''),
-                                                    'photo_bytes': manual_item.get('photo_bytes')
-                                                })
-
+                            if st.session_state.get('empty_dossier_mode') or not ordered_content:
+                                docx_data = generate_empty_dossier(
+                                    photo_bytes=photo_bytes,
+                                    border_crossing_data=st.session_state.get('border_crossing_data'),
+                                    dms_data=st.session_state.get('dms_data'),
+                                    family_data=family_list,
+                                    real_estate_data=st.session_state.get('real_estate_data'),
+                                    car_data=st.session_state.get('combined_car_data'),
+                                    filled_blocks=filled_blocks
+                                )
+                                pdf_filename = "Dossier.pdf"
+                            else:
                                 docx_data = generate_docx(
                                     {"Контент": ordered_content},
                                     photo_bytes=photo_bytes,
@@ -1230,30 +1247,23 @@ def main():
                                     real_estate_data=st.session_state.get('real_estate_data'),
                                     car_data=st.session_state.get('combined_car_data')
                                 )
+                                pdf_filename = get_pdf_filename_from_intro({"Контент": ordered_content})
 
-                                # Потім конвертуємо в PDF
-                                pdf_data = convert_docx_to_pdf(docx_data)
+                            pdf_data = convert_docx_to_pdf(docx_data)
 
-                                # Отримуємо ім'я PDF-файлу из имени DOCX-файла
-                                from document_generator import get_filename_from_intro
-                                docx_filename = get_filename_from_intro({"Контент": ordered_content})
-                                pdf_filename = get_pdf_filename_from_docx(docx_filename)
-
-                                st.download_button(
-                                    label="💾 Зберегти PDF (альтернативний метод)",
-                                    data=pdf_data,
-                                    file_name=pdf_filename,
-                                    mime="application/pdf"
-                                )
-                            except Exception as backup_e:
-                                st.error(f"❌ Помилка при альтернативній конвертації в PDF: {backup_e}")
-
+                            st.download_button(
+                                label="💾 Зберегти PDF",
+                                data=pdf_data,
+                                file_name=pdf_filename,
+                                mime="application/pdf"
+                            )
+                        except Exception as e:
+                            st.error(f"❌ Помилка при створенні PDF: {e}")
 
             # Кнопка для повного очищення
             st.markdown("---")
             if st.button("🧹 Завершити та очистити все", help="Це видалить усі тимчасові фото та скине вибір"):
-                cleanup_temp_photos() # Видаляємо ВСІ тимчасові фото
-                # Очищаємо сесію (залишаємо лише службові змінні)
+                cleanup_temp_photos()
                 keys_to_keep = ['processing_done', 'all_paragraphs']
                 for key in list(st.session_state.keys()):
                     if key not in keys_to_keep:
@@ -1261,8 +1271,8 @@ def main():
                 st.rerun()
 
     else:
-        # Показуємо інструкцію, якщо файли ще не завантажені
-        st.info("👆 Завантажте PDF файли для початку роботи")
+        if not st.session_state.get('empty_dossier_mode', False):
+            st.info("👆 Завантажте PDF файли для початку роботи або активуйте 'Створити порожнє досьє'")
 
 
 if __name__ == "__main__":

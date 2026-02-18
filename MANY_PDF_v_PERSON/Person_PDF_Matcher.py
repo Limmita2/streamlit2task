@@ -7,6 +7,7 @@
 import streamlit as st
 import os
 import fitz  # PyMuPDF
+import base64
 from io import BytesIO
 from PIL import Image
 from docx import Document
@@ -18,18 +19,6 @@ import re
 
 # Сторінка на всю ширину
 st.set_page_config(page_title="Person PDF Matcher", page_icon="👥", layout="wide")
-
-# Прибираємо max-width
-st.markdown(
-    """
-    <style>
-    .stMainBlockContainer {
-        max-width: none;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
 
 st.title("👥 Створення досьє на особу з PDF")
 st.markdown("""
