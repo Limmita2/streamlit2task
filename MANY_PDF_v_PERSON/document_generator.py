@@ -26,6 +26,37 @@ except ImportError:
 
 
 import re
+import base64
+
+EMPTY_DOSSIER_BLOCKS = [
+    "АНКЕТНІ ДАНІ",
+    "ДОКУМЕНТИ",
+    "АДРЕСИ",
+    "ПРИВАТНІ СТОРІНКИ В СОЦІАЛЬНИХ МЕРЕЖАХ",
+    "ПІДПРИЄМНИЦЬКА (ТРУДОВА) ДІЯЛЬНІСТЬ",
+    "НЕРУХОМЕ МАЙНО",
+    "ТРАНСПОРТНІ ЗАСОБИ",
+    "АДМІНІСТРАТИВНА ВІДПОВІДАЛЬНІСТЬ",
+    "КРИМІНАЛЬНА ВІДПОВІДАЛЬНІСТЬ",
+    "ОБЛІКИ ОВС",
+    "ЗАРЕЄСТРОВАНА ЗБРОЯ",
+    "ІНФОРМАЦІЯ З РЕЄСТРУ СУДОВИХ РІШЕНЬ",
+    "ВИКОНАВЧІ ПРОВАДЖЕННЯ, РЕЄСТР БОРЖНИКІВ",
+    "ДОВІРЕНОСТІ",
+    "РОДИННІ ЗВ'ЯЗКИ",
+    "ПЕРЕТИНИ ДЕРЖАВНОГО КОРДОНУ УКРАЇНИ"
+]
+
+BLOCK_MAPPING = {
+    "Початок документа": "АНКЕТНІ ДАНІ",
+    "Адреса": "АДРЕСИ",
+    "Нерухомість": "НЕРУХОМЕ МАЙНО",
+    "Нерухоме майно": "НЕРУХОМЕ МАЙНО",
+    "АВТО (НАІС ТЗ)": "ТРАНСПОРТНІ ЗАСОБИ",
+    "АВТО НАІС ТЗ": "ТРАНСПОРТНІ ЗАСОБИ",
+    "БАЗА НАІС ТЗ": "ТРАНСПОРТНІ ЗАСОБИ",
+    "авто (наіс тз)": "ТРАНСПОРТНІ ЗАСОБИ",
+}
 
 
 def get_filename_from_intro(data: dict) -> str:
@@ -487,6 +518,526 @@ def generate_docx(data: dict, photo_bytes: bytes = None, border_crossing_data: l
     # Додаємо секцію про перетин кордону, якщо вона є
     if border_crossing_data:
         append_border_crossing_to_doc(doc, border_crossing_data)
+
+    buffer = io.BytesIO()
+    doc.save(buffer)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
+def add_block_header(doc, header_name: str):
+    """Додає тільки заголовок блоку на блакитному фоні без порожніх рядків."""
+    t = doc.add_table(rows=1, cols=1)
+    t.width = Inches(6.5)
+    cell = t.rows[0].cells[0]
+
+    shading_elm = OxmlElement('w:shd')
+    shading_elm.set(qn('w:fill'), '9BC2E6')
+    cell._element.get_or_add_tcPr().append(shading_elm)
+
+    tcPr = cell._element.get_or_add_tcPr()
+    tcBorders = OxmlElement('w:tcBorders')
+    for border in ['top', 'left', 'bottom', 'right']:
+        b = OxmlElement(f'w:{border}')
+        b.set(qn('w:val'), 'none')
+        tcBorders.append(b)
+    tcPr.append(tcBorders)
+
+    p_h = cell.paragraphs[0]
+    p_h.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    run_h = p_h.add_run("       " + header_name.upper())
+    run_h.bold = True
+    run_h.italic = True
+    run_h.font.size = Pt(14)
+    p_h.paragraph_format.space_before = Pt(0)
+    p_h.paragraph_format.space_after = Pt(0)
+
+
+def add_empty_block(doc, header_name: str, photo_bytes: bytes = None):
+    """Додає порожній блок із заголовком на блакитному фоні та 5 порожніх рядків."""
+    t = doc.add_table(rows=1, cols=1)
+    t.width = Inches(6.5)
+    cell = t.rows[0].cells[0]
+
+    shading_elm = OxmlElement('w:shd')
+    shading_elm.set(qn('w:fill'), '9BC2E6')
+    cell._element.get_or_add_tcPr().append(shading_elm)
+
+    tcPr = cell._element.get_or_add_tcPr()
+    tcBorders = OxmlElement('w:tcBorders')
+    for border in ['top', 'left', 'bottom', 'right']:
+        b = OxmlElement(f'w:{border}')
+        b.set(qn('w:val'), 'none')
+        tcBorders.append(b)
+    tcPr.append(tcBorders)
+
+    p_h = cell.paragraphs[0]
+    p_h.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    run_h = p_h.add_run("       " + header_name.upper())
+    run_h.bold = True
+    run_h.italic = True
+    run_h.font.size = Pt(14)
+    p_h.paragraph_format.space_before = Pt(0)
+    p_h.paragraph_format.space_after = Pt(0)
+
+    for _ in range(5):
+        empty_p = doc.add_paragraph()
+        empty_p.paragraph_format.space_before = Pt(0)
+        empty_p.paragraph_format.space_after = Pt(0)
+
+
+def generate_empty_dossier(photo_bytes: bytes = None, border_crossing_data: list = None,
+                           dms_data: dict = None, family_data: list = None,
+                           real_estate_data: list = None, car_data: list = None,
+                           filled_blocks: dict = None) -> bytes:
+    """
+    Генерує порожнє досьє з усіма блоками.
+    
+    Args:
+        photo_bytes: Фото для анкетних даних
+        border_crossing_data: Дані про перетин кордону
+        dms_data: Дані ДМС
+        family_data: Дані про родинні зв'язки
+        real_estate_data: Дані про нерухомість
+        car_data: Дані про транспортні засоби
+        filled_blocks: Словник {header_name: content} для заповнених блоків з PDF
+    
+    Returns:
+        bytes: DOCX файл
+    """
+    doc = Document()
+
+    section = doc.sections[0]
+    section.top_margin = Cm(2)
+    section.bottom_margin = Cm(2)
+    section.left_margin = Cm(3)
+    section.right_margin = Cm(1.5)
+
+    style = doc.styles['Normal']
+    font = style.font
+    font.name = 'Times New Roman'
+    font.size = Pt(14)
+
+    # Заголовки документа
+    p_analitic_profile = doc.add_paragraph()
+    p_analitic_profile.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p_analitic_profile.paragraph_format.space_before = Pt(0)
+    p_analitic_profile.paragraph_format.space_after = Pt(0)
+    run_analitic_profile = p_analitic_profile.add_run("АНАЛІТИЧНИЙ ПРОФІЛЬ")
+    run_analitic_profile.bold = True
+    run_analitic_profile.font.size = Pt(14)
+
+    p_on_person = doc.add_paragraph()
+    p_on_person.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p_on_person.paragraph_format.space_before = Pt(0)
+    p_on_person.paragraph_format.space_after = Pt(0)
+    run_on_person = p_on_person.add_run("на фізичну особу")
+    run_on_person.bold = True
+    run_on_person.font.size = Pt(14)
+
+    doc.add_paragraph()
+
+    if filled_blocks is None:
+        filled_blocks = {}
+
+    final_photo_bytes = None
+    if dms_data and dms_data.get('photo_bytes'):
+        final_photo_bytes = dms_data['photo_bytes']
+    elif photo_bytes:
+        final_photo_bytes = photo_bytes
+    elif os.path.exists('default_avatar.png'):
+        with open('default_avatar.png', 'rb') as f:
+            final_photo_bytes = f.read()
+
+    for block_name in EMPTY_DOSSIER_BLOCKS:
+        if block_name == "АНКЕТНІ ДАНІ":
+            if dms_data and dms_data.get('info'):
+                append_dms_to_doc(doc, dms_data['info'], photo_bytes=final_photo_bytes, header_name="ІНФОРМАЦІЯ З ДМС")
+            elif block_name in filled_blocks:
+                content = filled_blocks[block_name]
+                t_top = doc.add_table(rows=1, cols=1)
+                t_top.width = Inches(6.5)
+                cell_top = t_top.rows[0].cells[0]
+                
+                shd = OxmlElement('w:shd')
+                shd.set(qn('w:fill'), '9BC2E6')
+                cell_top._element.get_or_add_tcPr().append(shd)
+                
+                p_top = cell_top.paragraphs[0]
+                p_top.alignment = WD_ALIGN_PARAGRAPH.LEFT
+                p_top.paragraph_format.space_before = Pt(0)
+                p_top.paragraph_format.space_after = Pt(0)
+                run_top = p_top.add_run("       АНКЕТНІ ДАНІ:")
+                run_top.bold = True
+                run_top.italic = True
+                run_top.font.size = Pt(14)
+
+                spacer = doc.add_paragraph()
+                spacer.paragraph_format.space_before = Mm(3)
+                spacer.paragraph_format.space_after = Mm(0)
+                spacer.paragraph_format.line_spacing = 0
+
+                table = doc.add_table(rows=1, cols=2)
+                table.autofit = False
+                
+                left_cell = table.rows[0].cells[0]
+                left_cell.width = Inches(2.0)
+                if final_photo_bytes:
+                    paragraph = left_cell.paragraphs[0]
+                    run = paragraph.add_run()
+                    run.add_picture(BytesIO(final_photo_bytes), width=Inches(1.8))
+
+                right_cell = table.rows[0].cells[1]
+                right_cell.width = Inches(4.5)
+                right_cell.vertical_alignment = 1
+
+                for para in right_cell.paragraphs:
+                    para.clear()
+
+                p = right_cell.paragraphs[0]
+                p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+                run = p.add_run(content)
+                run.font.size = Pt(14)
+            else:
+                t_top = doc.add_table(rows=1, cols=1)
+                t_top.width = Inches(6.5)
+                cell_top = t_top.rows[0].cells[0]
+                
+                shd = OxmlElement('w:shd')
+                shd.set(qn('w:fill'), '9BC2E6')
+                cell_top._element.get_or_add_tcPr().append(shd)
+                
+                p_top = cell_top.paragraphs[0]
+                p_top.alignment = WD_ALIGN_PARAGRAPH.LEFT
+                p_top.paragraph_format.space_before = Pt(0)
+                p_top.paragraph_format.space_after = Pt(0)
+                run_top = p_top.add_run("       АНКЕТНІ ДАНІ:")
+                run_top.bold = True
+                run_top.italic = True
+                run_top.font.size = Pt(14)
+
+                spacer = doc.add_paragraph()
+                spacer.paragraph_format.space_before = Mm(3)
+                spacer.paragraph_format.space_after = Mm(0)
+                spacer.paragraph_format.line_spacing = 0
+
+                table = doc.add_table(rows=1, cols=2)
+                table.autofit = False
+                
+                left_cell = table.rows[0].cells[0]
+                left_cell.width = Inches(2.0)
+                if final_photo_bytes:
+                    paragraph = left_cell.paragraphs[0]
+                    run = paragraph.add_run()
+                    run.add_picture(BytesIO(final_photo_bytes), width=Inches(1.8))
+
+                right_cell = table.rows[0].cells[1]
+                right_cell.width = Inches(4.5)
+                right_cell.vertical_alignment = 1
+
+                for para in right_cell.paragraphs:
+                    para.clear()
+
+                for _ in range(5):
+                    empty_p = right_cell.add_paragraph()
+                    empty_p.paragraph_format.space_before = Pt(0)
+                    empty_p.paragraph_format.space_after = Pt(0)
+
+        elif block_name == "ДОКУМЕНТИ":
+            if dms_data and dms_data.get('info') and dms_data['info'].get('documents'):
+                add_block_header(doc, block_name)
+                for doc_str in dms_data['info']['documents']:
+                    p = doc.add_paragraph()
+                    p.paragraph_format.space_before = Pt(0)
+                    p.paragraph_format.space_after = Pt(2)
+                    run = p.add_run(f"• {doc_str}")
+                    run.font.name = 'Times New Roman'
+                    run.font.size = Pt(14)
+            elif block_name in filled_blocks:
+                add_block_header(doc, block_name)
+                p = doc.add_paragraph()
+                p.paragraph_format.space_before = Pt(0)
+                p.paragraph_format.space_after = Pt(2)
+                run = p.add_run(filled_blocks[block_name])
+                run.font.name = 'Times New Roman'
+                run.font.size = Pt(14)
+            else:
+                add_empty_block(doc, block_name)
+
+        elif block_name == "НЕРУХОМЕ МАЙНО":
+            if real_estate_data:
+                append_real_estate_to_doc(doc, real_estate_data)
+            elif block_name in filled_blocks:
+                add_empty_block(doc, block_name)
+                p = doc.add_paragraph()
+                p.paragraph_format.space_before = Pt(0)
+                p.paragraph_format.space_after = Pt(2)
+                run = p.add_run(filled_blocks[block_name])
+                run.font.name = 'Times New Roman'
+                run.font.size = Pt(14)
+            else:
+                add_empty_block(doc, block_name)
+
+        elif block_name == "ТРАНСПОРТНІ ЗАСОБИ":
+            if car_data:
+                append_car_to_doc(doc, car_data)
+            elif block_name in filled_blocks:
+                add_empty_block(doc, block_name)
+                p = doc.add_paragraph()
+                p.paragraph_format.space_before = Pt(0)
+                p.paragraph_format.space_after = Pt(2)
+                run = p.add_run(filled_blocks[block_name])
+                run.font.name = 'Times New Roman'
+                run.font.size = Pt(14)
+            else:
+                add_empty_block(doc, block_name)
+
+        elif block_name == "РОДИННІ ЗВ'ЯЗКИ":
+            if family_data:
+                t = doc.add_table(rows=1, cols=1)
+                t.width = Inches(6.5)
+                cell = t.rows[0].cells[0]
+
+                shading_elm = OxmlElement('w:shd')
+                shading_elm.set(qn('w:fill'), '9BC2E6')
+                cell._element.get_or_add_tcPr().append(shading_elm)
+
+                tcPr = cell._element.get_or_add_tcPr()
+                tcBorders = OxmlElement('w:tcBorders')
+                for border in ['top', 'left', 'bottom', 'right']:
+                    b = OxmlElement(f'w:{border}')
+                    b.set(qn('w:val'), 'none')
+                    tcBorders.append(b)
+                tcPr.append(tcBorders)
+
+                p_h = cell.paragraphs[0]
+                p_h.alignment = WD_ALIGN_PARAGRAPH.LEFT
+                p_h.paragraph_format.space_before = Pt(0)
+                p_h.paragraph_format.space_after = Pt(0)
+                run_h = p_h.add_run("       РОДИННІ ЗВ'ЯЗКИ")
+                run_h.bold = True
+                run_h.italic = True
+                run_h.font.size = Pt(14)
+
+                for member in family_data:
+                    relative_type = member.get('relative_type', 'Родич')
+                    
+                    spacer = doc.add_paragraph()
+                    spacer.paragraph_format.space_before = Mm(3)
+                    spacer.paragraph_format.space_after = Mm(0)
+                    spacer.paragraph_format.line_spacing = 0
+                    
+                    if member.get('info'):
+                        dms_info = member['info']
+                        table = doc.add_table(rows=1, cols=2)
+                        table.autofit = False
+                        
+                        left_cell = table.rows[0].cells[0]
+                        left_cell.width = Inches(1.8)
+                        member_photo = member.get('photo_bytes')
+                        if member_photo:
+                            paragraph = left_cell.paragraphs[0]
+                            run = paragraph.add_run()
+                            run.add_picture(BytesIO(member_photo), width=Inches(1.6))
+                        elif os.path.exists('default_avatar.png'):
+                            with open('default_avatar.png', 'rb') as f:
+                                paragraph = left_cell.paragraphs[0]
+                                run = paragraph.add_run()
+                                run.add_picture(BytesIO(f.read()), width=Inches(1.6))
+                        
+                        right_cell = table.rows[0].cells[1]
+                        right_cell.width = Inches(4.7)
+                        
+                        p = right_cell.paragraphs[0]
+                        p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+                        
+                        r = p.add_run(f"[{relative_type}] ")
+                        r.font.name = 'Times New Roman'
+                        r.font.size = Pt(14)
+                        r.bold = True
+                        
+                        r = p.add_run(f"{dms_info.get('fio', '')}\n")
+                        r.font.name = 'Times New Roman'
+                        r.font.size = Pt(14)
+                        r.bold = True
+                        
+                        if dms_info.get('data'):
+                            r = p.add_run(f"Дата народження: {dms_info['data']}\n")
+                            r.font.name = 'Times New Roman'
+                            r.font.size = Pt(14)
+                        
+                        if dms_info.get('birthplace'):
+                            r = p.add_run(f"Місце народження: {dms_info['birthplace']}\n")
+                            r.font.name = 'Times New Roman'
+                            r.font.size = Pt(14)
+                        
+                        if dms_info.get('iphp'):
+                            r = p.add_run(f"РНОКПП: {dms_info['iphp']}\n")
+                            r.font.name = 'Times New Roman'
+                            r.font.size = Pt(14)
+                        
+                        if dms_info.get('uhzp'):
+                            r = p.add_run(f"УНЗР: {dms_info['uhzp']}\n")
+                            r.font.name = 'Times New Roman'
+                            r.font.size = Pt(14)
+                        
+                        if dms_info.get('adress'):
+                            r = p.add_run(f"Адреса перебування: {dms_info['adress']}\n")
+                            r.font.name = 'Times New Roman'
+                            r.font.size = Pt(14)
+                        
+                        if dms_info.get('tel'):
+                            r = p.add_run(f"Телефон: {dms_info['tel']}")
+                            r.font.name = 'Times New Roman'
+                            r.font.size = Pt(14)
+                            r.bold = True
+                        
+                        if dms_info.get('documents'):
+                            p_extra = right_cell.add_paragraph()
+                            for doc_str in dms_info['documents']:
+                                r = p_extra.add_run(f"• {doc_str}\n")
+                                r.font.name = 'Times New Roman'
+                                r.font.size = Pt(14)
+                    elif member.get('manual_text'):
+                        table = doc.add_table(rows=1, cols=2)
+                        table.autofit = False
+                        
+                        left_cell = table.rows[0].cells[0]
+                        left_cell.width = Inches(1.8)
+                        member_photo = member.get('photo_bytes')
+                        if member_photo:
+                            paragraph = left_cell.paragraphs[0]
+                            run = paragraph.add_run()
+                            run.add_picture(BytesIO(member_photo), width=Inches(1.6))
+                        elif os.path.exists('default_avatar.png'):
+                            with open('default_avatar.png', 'rb') as f:
+                                paragraph = left_cell.paragraphs[0]
+                                run = paragraph.add_run()
+                                run.add_picture(BytesIO(f.read()), width=Inches(1.6))
+                        
+                        right_cell = table.rows[0].cells[1]
+                        right_cell.width = Inches(4.7)
+                        
+                        p = right_cell.paragraphs[0]
+                        p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+                        
+                        r = p.add_run(f"[{relative_type}] ")
+                        r.font.name = 'Times New Roman'
+                        r.font.size = Pt(14)
+                        r.bold = True
+                        
+                        lines = member['manual_text'].split('\n')
+                        for i, line in enumerate(lines):
+                            if line.strip():
+                                r = p.add_run(line.strip() + ("\n" if i < len(lines) - 1 else ""))
+                                r.font.name = 'Times New Roman'
+                                r.font.size = Pt(14)
+            else:
+                add_empty_block(doc, block_name)
+
+        elif block_name == "ПЕРЕТИНИ ДЕРЖАВНОГО КОРДОНУ УКРАЇНИ":
+            if border_crossing_data:
+                append_border_crossing_to_doc(doc, border_crossing_data)
+            else:
+                add_empty_block(doc, block_name)
+
+        elif block_name == "АДРЕСИ":
+            if dms_data and dms_data.get('info') and dms_data['info'].get('adress'):
+                add_block_header(doc, block_name)
+                p = doc.add_paragraph()
+                p.paragraph_format.space_before = Pt(0)
+                p.paragraph_format.space_after = Pt(2)
+                run = p.add_run(f"Адреса перебування: {dms_data['info']['adress']}")
+                run.font.name = 'Times New Roman'
+                run.font.size = Pt(14)
+            elif block_name in filled_blocks:
+                add_block_header(doc, block_name)
+                p = doc.add_paragraph()
+                p.paragraph_format.space_before = Pt(0)
+                p.paragraph_format.space_after = Pt(2)
+                run = p.add_run(filled_blocks[block_name])
+                run.font.name = 'Times New Roman'
+                run.font.size = Pt(14)
+            else:
+                add_empty_block(doc, block_name)
+
+        elif block_name == "ПІДПРИЄМНИЦЬКА (ТРУДОВА) ДІЯЛЬНІСТЬ":
+            if dms_data and dms_data.get('info') and dms_data['info'].get('fop'):
+                add_block_header(doc, block_name)
+                fop_data = dms_data['info']['fop']
+                
+                p = doc.add_paragraph()
+                p.paragraph_format.space_before = Pt(0)
+                p.paragraph_format.space_after = Pt(2)
+                
+                r = p.add_run("ІНФОРМАЦІЯ ПРО ФОП:\n")
+                r.bold = True
+                r.font.name = 'Times New Roman'
+                r.font.size = Pt(14)
+                
+                r = p.add_run(f"ФОП: {fop_data['fio']}\n")
+                r.font.name = 'Times New Roman'
+                r.font.size = Pt(14)
+                
+                r = p.add_run(f"Статус: {fop_data['status']}\n")
+                r.font.name = 'Times New Roman'
+                r.font.size = Pt(14)
+                
+                r = p.add_run(f"Вид діяльності: {fop_data['kind_of_activity']}")
+                r.font.name = 'Times New Roman'
+                r.font.size = Pt(14)
+            elif block_name in filled_blocks:
+                add_block_header(doc, block_name)
+                p = doc.add_paragraph()
+                p.paragraph_format.space_before = Pt(0)
+                p.paragraph_format.space_after = Pt(2)
+                run = p.add_run(filled_blocks[block_name])
+                run.font.name = 'Times New Roman'
+                run.font.size = Pt(14)
+            else:
+                add_empty_block(doc, block_name)
+
+        else:
+            if block_name in filled_blocks:
+                add_block_header(doc, block_name)
+                p = doc.add_paragraph()
+                p.paragraph_format.space_before = Pt(0)
+                p.paragraph_format.space_after = Pt(2)
+                run = p.add_run(filled_blocks[block_name])
+                run.font.name = 'Times New Roman'
+                run.font.size = Pt(14)
+            else:
+                add_empty_block(doc, block_name)
+
+    section = doc.sections[0]
+
+    header = section.header
+    header.is_linked_to_previous = False
+
+    header_para1 = header.paragraphs[0]
+    header_para1.alignment = WD_PARAGRAPH_ALIGNMENT.RIGHT
+    header_run1 = header_para1.add_run("УКА ГУНП")
+    header_run1.font.name = "Times New Roman"
+    header_run1.font.size = Pt(12)
+    header_run1.font.color.rgb = RGBColor(255, 0, 0)
+
+    header_para2 = header.add_paragraph()
+    header_para2.alignment = WD_PARAGRAPH_ALIGNMENT.RIGHT
+    today_date = datetime.today().strftime("%d.%m.%Y")
+    header_run2 = header_para2.add_run(today_date)
+    header_run2.font.name = "Times New Roman"
+    header_run2.font.size = Pt(12)
+    header_run2.font.color.rgb = RGBColor(255, 0, 0)
+
+    footer = section.footer
+    footer.is_linked_to_previous = False
+
+    footer_para = footer.paragraphs[0]
+    footer_para.alignment = WD_PARAGRAPH_ALIGNMENT.RIGHT
+    footer_run = footer_para.add_run("Управління кримінального аналізу")
+    footer_run.font.name = "Times New Roman"
+    footer_run.font.size = Pt(12)
+    footer_run.font.bold = True
 
     buffer = io.BytesIO()
     doc.save(buffer)

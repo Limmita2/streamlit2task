@@ -274,51 +274,7 @@ def append_dms_to_doc(doc, dms_info, photo_bytes=None, header_name="ІНФОРМ
     r.font.name = 'Times New Roman'
     r.font.size = Pt(14)
 
-    r = p.add_run(f"Адреса перебування: {dms_info['adress']}\n")
-    r.font.name = 'Times New Roman'
-    r.font.size = Pt(14)
-    r.font.italic = True
-    r.font.color.rgb = RGBColor(56, 86, 35)
-
     r = p.add_run(f"Телефон: {dms_info['tel']}")
     r.font.name = 'Times New Roman'
     r.font.size = Pt(14)
     r.font.bold = True
-
-    # Блок нижче таблиці для документів
-    p_extra = doc.add_paragraph()
-    p_extra.alignment = WD_ALIGN_PARAGRAPH.LEFT
-    p_extra.paragraph_format.space_before = Pt(0)
-    p_extra.paragraph_format.space_after = Pt(0)
-
-    # Документи
-    if dms_info['documents']:
-        r = p_extra.add_run("ДОКУМЕНТИ:\n")
-        r.bold = True
-        r.font.name = 'Times New Roman'
-        r.font.size = Pt(14)
-        for doc_str in dms_info['documents']:
-            r = p_extra.add_run(f"• {doc_str}\n")
-            r.font.name = 'Times New Roman'
-            r.font.size = Pt(14)
-
-    # Інформація ФОП
-    if dms_info.get('fop'):
-        p_fop = doc.add_paragraph()
-        r = p_fop.add_run("ІНФОРМАЦІЯ ПРО ФОП:\n")
-        r.bold = True
-        r.font.name = 'Times New Roman'
-        r.font.size = Pt(14)
-
-        fop_data = dms_info['fop']
-        r = p_fop.add_run(f"ФОП: {fop_data['fio']}\n")
-        r.font.name = 'Times New Roman'
-        r.font.size = Pt(14)
-
-        r = p_fop.add_run(f"Статус: {fop_data['status']}\n")
-        r.font.name = 'Times New Roman'
-        r.font.size = Pt(14)
-
-        r = p_fop.add_run(f"Вид діяльності: {fop_data['kind_of_activity']}")
-        r.font.name = 'Times New Roman'
-        r.font.size = Pt(14)
