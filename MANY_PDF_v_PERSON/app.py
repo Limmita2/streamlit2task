@@ -1,6 +1,7 @@
 import streamlit as st
 import os
 import io
+import base64
 import time
 import re
 from io import BytesIO
