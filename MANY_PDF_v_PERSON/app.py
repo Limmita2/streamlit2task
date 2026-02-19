@@ -17,6 +17,7 @@ import dms_processor
 from dms_processor import extract_dms_data
 from real_estate_processor import parse_real_estate_pdf
 from car_processor import append_car_to_doc
+from pension_processor import process_pension_data
 import pandas as pd
 
 
@@ -677,7 +678,7 @@ def main():
         st.markdown("---")
         st.header("6️⃣ Документи")
         
-        tab_dms, tab_arkan, tab_real_estate, tab_car = st.tabs(["🏛️ ДМС", "🚢 Аркан", "🏢 Нерухомість", "🚗 АВТО"])
+        tab_dms, tab_arkan, tab_real_estate, tab_car, tab_pension = st.tabs(["🏛️ ДМС", "🚢 Аркан", "🏢 Нерухомість", "🚗 АВТО", "🏦 Пенсійний"])
 
         with tab_dms:
             uploaded_dms = st.file_uploader(
@@ -970,6 +971,128 @@ def main():
                 st.session_state['combined_car_data'] = None
                 st.rerun()
 
+        with tab_pension:
+            st.markdown("##### **Вставте текст з реєстру ІПНП**")
+            
+            # Ініціалізація session_state
+            if 'pension_data' not in st.session_state:
+                st.session_state['pension_data'] = None
+            if 'pension_raw_text' not in st.session_state:
+                st.session_state['pension_raw_text'] = ""
+            
+            # Поле для вставки тексту
+            pension_text = st.text_area(
+                "Текст з реєстру Пенсійного фонду",
+                value=st.session_state.get('pension_raw_text', ''),
+                placeholder='Вставте сюди рядок з ІПНП...\nНаприклад: ПРИВАТНЕ АКЦІОНЕРНЕ ТОВАРИСТВО "ІСРЗ" 32333962 01.08.2014',
+                height=150,
+                label_visibility="collapsed",
+                key="pension_text_area"
+            )
+            
+            # Зберігаємо введений текст
+            st.session_state['pension_raw_text'] = pension_text
+            
+            # Кнопка перевірки
+            if st.button("🔎  Перевірити в FinAP"):
+                if not pension_text.strip():
+                    st.warning("⚠️ Введіть текст для обробки")
+                else:
+                    with st.spinner("Обробка даних з ПФУ..."):
+                        result = process_pension_data(pension_text)
+
+                        if result['error']:
+                            st.error(f"❌ {result['error']}")
+                            st.session_state['pension_data'] = None
+                        else:
+                            st.session_state['pension_data'] = result
+                            st.success("✅ Дані успішно оброблено")
+                            st.rerun()
+            
+            # Відображення результатів
+            if st.session_state.get('pension_data') and st.session_state['pension_data'].get('finap_info'):
+                data = st.session_state['pension_data']
+                parsed = data['parsed']
+                info = data['finap_info']
+                
+                # Визначаємо тип коду
+                code_label = "РНОКПП" if (parsed.edrpou and len(parsed.edrpou) == 10) else "ЄДРПОУ"
+                
+                # Попередній перегляд розпарсеного
+                chips_html = '<div style="display: flex; gap: 8px; flex-wrap: wrap; margin: 0.8rem 0 1.4rem;">'
+                chips_html += f'<div style="background: #151820; border: 1px solid #252A36; border-radius: 20px; padding: 4px 12px; font-family: monospace; font-size: 0.72rem; color: #8A94A6;">🏢 Назва<span style="color: #00E5A0; margin-left: 4px;">{parsed.company_name or "—"}</span></div>'
+                chips_html += f'<div style="background: #151820; border: 1px solid #252A36; border-radius: 20px; padding: 4px 12px; font-family: monospace; font-size: 0.72rem; color: #8A94A6;">🔢 {code_label}<span style="color: #00E5A0; margin-left: 4px;">{parsed.edrpou or "—"}</span></div>'
+                chips_html += f'<div style="background: #151820; border: 1px solid #252A36; border-radius: 20px; padding: 4px 12px; font-family: monospace; font-size: 0.72rem; color: #8A94A6;">📅 Дата внеску<span style="color: #00E5A0; margin-left: 4px;">{parsed.last_payment_date or "—"}</span></div>'
+                chips_html += '</div>'
+                st.markdown(chips_html, unsafe_allow_html=True)
+                
+                # Картка з результатами
+                status_val = info.get('status', '—')
+                if "ЗАРЕЄСТРОВАНО" in status_val.upper() and "ПРИПИНЕНО" not in status_val.upper():
+                    status_html = f'<span style="display: inline-block; background: rgba(0,229,160,0.12); color: #00E5A0; border-radius: 4px; padding: 2px 10px; font-size: 0.78rem; font-family: monospace;">{status_val}</span>'
+                else:
+                    status_html = f'<span style="display: inline-block; background: rgba(255,80,80,0.12); color: #FF5050; border-radius: 4px; padding: 2px 10px; font-size: 0.78rem; font-family: monospace;">{status_val}</span>'
+                
+                card = f"""
+<div style="background: #151820; border: 1px solid #1E2430; border-radius: 12px; padding: 1.5rem 1.8rem; margin-top: 1rem;">
+  <div style="display: flex; align-items: flex-start; padding: 0.65rem 0; border-bottom: 1px solid #1A1F2A; gap: 1rem;">
+    <div style="font-size: 1rem; min-width: 24px;">🏢</div>
+    <div style="font-family: monospace; font-size: 0.68rem; color: #556070; text-transform: uppercase; letter-spacing: 0.07em; min-width: 130px;">Назва</div>
+    <div style="font-size: 0.88rem; color: #E8EAF0;">{info['name']}</div>
+  </div>
+  <div style="display: flex; align-items: flex-start; padding: 0.65rem 0; border-bottom: 1px solid #1A1F2A; gap: 1rem;">
+    <div style="font-size: 1rem; min-width: 24px;">🔢</div>
+    <div style="font-family: monospace; font-size: 0.68rem; color: #556070; text-transform: uppercase; letter-spacing: 0.07em; min-width: 130px;">{code_label}</div>
+    <div style="font-family: monospace; font-size: 0.82rem; color: #E8EAF0;">{parsed.edrpou}</div>
+  </div>
+  <div style="display: flex; align-items: flex-start; padding: 0.65rem 0; border-bottom: 1px solid #1A1F2A; gap: 1rem;">
+    <div style="font-size: 1rem; min-width: 24px;">📍</div>
+    <div style="font-family: monospace; font-size: 0.68rem; color: #556070; text-transform: uppercase; letter-spacing: 0.07em; min-width: 130px;">Адреса</div>
+    <div style="font-size: 0.88rem; color: #E8EAF0;">{info['address']}</div>
+  </div>
+  <div style="display: flex; align-items: flex-start; padding: 0.65rem 0; border-bottom: 1px solid #1A1F2A; gap: 1rem;">
+    <div style="font-size: 1rem; min-width: 24px;">👤</div>
+    <div style="font-family: monospace; font-size: 0.68rem; color: #556070; text-transform: uppercase; letter-spacing: 0.07em; min-width: 130px;">Керівник</div>
+    <div style="font-size: 0.88rem; color: #E8EAF0;">{info['manager']}</div>
+  </div>
+  <div style="display: flex; align-items: flex-start; padding: 0.65rem 0; border-bottom: 1px solid #1A1F2A; gap: 1rem;">
+    <div style="font-size: 1rem; min-width: 24px;">🏭</div>
+    <div style="font-family: monospace; font-size: 0.68rem; color: #556070; text-transform: uppercase; letter-spacing: 0.07em; min-width: 130px;">Вид діяльності</div>
+    <div style="font-size: 0.88rem; color: #E8EAF0;">{info['kved']}</div>
+  </div>
+  <div style="display: flex; align-items: flex-start; padding: 0.65rem 0; border-bottom: 1px solid #1A1F2A; gap: 1rem;">
+    <div style="font-size: 1rem; min-width: 24px;">📊</div>
+    <div style="font-family: monospace; font-size: 0.68rem; color: #556070; text-transform: uppercase; letter-spacing: 0.07em; min-width: 130px;">Статус</div>
+    <div style="font-size: 0.88rem; color: #E8EAF0;">{status_html}</div>
+  </div>
+  <div style="display: flex; align-items: flex-start; padding: 0.65rem 0; border-bottom: 1px solid #1A1F2A; gap: 1rem;">
+    <div style="font-size: 1rem; min-width: 24px;">📧</div>
+    <div style="font-family: monospace; font-size: 0.68rem; color: #556070; text-transform: uppercase; letter-spacing: 0.07em; min-width: 130px;">Email</div>
+    <div style="font-family: monospace; font-size: 0.82rem; color: #E8EAF0;">{info['email'] or "—"}</div>
+  </div>
+  <div style="display: flex; align-items: flex-start; padding: 0.65rem 0; border-bottom: 1px solid #1A1F2A; gap: 1rem;">
+    <div style="font-size: 1rem; min-width: 24px;">📞</div>
+    <div style="font-family: monospace; font-size: 0.68rem; color: #556070; text-transform: uppercase; letter-spacing: 0.07em; min-width: 130px;">Телефон</div>
+    <div style="font-family: monospace; font-size: 0.82rem; color: #E8EAF0;">{info['phone'] or "—"}</div>
+  </div>
+  <div style="display: flex; align-items: flex-start; padding: 0.65rem 0; gap: 1rem;">
+    <div style="font-size: 1rem; min-width: 24px;">📅</div>
+    <div style="font-family: monospace; font-size: 0.68rem; color: #556070; text-transform: uppercase; letter-spacing: 0.07em; min-width: 130px;">Остання дата внеску</div>
+    <div style="font-family: monospace; font-size: 0.82rem; color: #E8EAF0;">{parsed.last_payment_date or '—'}</div>
+  </div>
+</div>
+"""
+                st.markdown(card, unsafe_allow_html=True)
+                
+                # Інформація для виводу в Word
+                st.markdown(f"<div style='font-size: 0.85rem; margin-top: 1rem; color: #8A94A6; font-family: monospace;'>{data['formatted_line']}</div>", unsafe_allow_html=True)
+                
+                # Кнопка очищення
+                if st.button("❌ Очистити дані Пенсійний"):
+                    st.session_state['pension_data'] = None
+                    st.session_state['pension_raw_text'] = ""
+                    st.rerun()
+
         # Секція 7: Родинні зв'язки
         st.markdown("---")
         st.header("7️⃣ Родинні зв'язки")
@@ -1161,6 +1284,7 @@ def main():
                                     family_data=family_list,
                                     real_estate_data=st.session_state.get('real_estate_data'),
                                     car_data=st.session_state.get('combined_car_data'),
+                                    pension_data=st.session_state.get('pension_data'),
                                     filled_blocks=filled_blocks
                                 )
                                 filename = "Dossier.docx"
@@ -1172,7 +1296,8 @@ def main():
                                     dms_data=st.session_state.get('dms_data'),
                                     family_data=family_list,
                                     real_estate_data=st.session_state.get('real_estate_data'),
-                                    car_data=st.session_state.get('combined_car_data')
+                                    car_data=st.session_state.get('combined_car_data'),
+                                    pension_data=st.session_state.get('pension_data')
                                 )
                                 filename = get_filename_from_intro({"Контент": ordered_content})
 
@@ -1235,6 +1360,7 @@ def main():
                                     family_data=family_list,
                                     real_estate_data=st.session_state.get('real_estate_data'),
                                     car_data=st.session_state.get('combined_car_data'),
+                                    pension_data=st.session_state.get('pension_data'),
                                     filled_blocks=filled_blocks
                                 )
                                 pdf_filename = "Dossier.pdf"
@@ -1246,7 +1372,8 @@ def main():
                                     dms_data=st.session_state.get('dms_data'),
                                     family_data=family_list,
                                     real_estate_data=st.session_state.get('real_estate_data'),
-                                    car_data=st.session_state.get('combined_car_data')
+                                    car_data=st.session_state.get('combined_car_data'),
+                                    pension_data=st.session_state.get('pension_data')
                                 )
                                 pdf_filename = get_pdf_filename_from_intro({"Контент": ordered_content})
 

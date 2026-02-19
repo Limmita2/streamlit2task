@@ -23,6 +23,10 @@ try:
     from .car_processor import append_car_to_doc
 except ImportError:
     from car_processor import append_car_to_doc
+try:
+    from .pension_processor import process_pension_data
+except ImportError:
+    from pension_processor import process_pension_data
 
 
 import re
@@ -78,7 +82,7 @@ def get_filename_from_intro(data: dict) -> str:
     return "Dossier.docx"
 
 
-def generate_docx(data: dict, photo_bytes: bytes = None, border_crossing_data: list = None, dms_data: dict = None, family_data: list = None, real_estate_data: list = None, car_data: list = None) -> bytes:
+def generate_docx(data: dict, photo_bytes: bytes = None, border_crossing_data: list = None, dms_data: dict = None, family_data: list = None, real_estate_data: list = None, car_data: list = None, pension_data: dict = None) -> bytes:
     """
     Генерує документ Word з вибраних абзаців.
     """
@@ -515,6 +519,10 @@ def generate_docx(data: dict, photo_bytes: bytes = None, border_crossing_data: l
     if car_data:
         append_car_to_doc(doc, car_data)
 
+    # Додаємо секцію про Пенсійний фонд, якщо вона є
+    if pension_data:
+        append_pension_to_doc(doc, pension_data)
+
     # Додаємо секцію про перетин кордону, якщо вона є
     if border_crossing_data:
         append_border_crossing_to_doc(doc, border_crossing_data)
@@ -523,6 +531,32 @@ def generate_docx(data: dict, photo_bytes: bytes = None, border_crossing_data: l
     doc.save(buffer)
     buffer.seek(0)
     return buffer.getvalue()
+
+
+def append_pension_to_doc(doc, pension_data: dict, add_header: bool = True):
+    """
+    Додає дані з Пенсійного фонду до документу Word.
+    Виводить інформацію в один рядок у розділ "ПІДПРИЄМНИЦЬКА (ТРУДОВА) ДІЯЛЬНІСТЬ".
+
+    Args:
+        doc: Document об'єкт
+        pension_data: dict з ключем 'formatted_line' що містить відформатований рядок
+        add_header: Чи додавати заголовок (True для generate_empty_dossier, False для generate_docx)
+    """
+    if not pension_data or not pension_data.get('formatted_line'):
+        return
+
+    # Додаємо заголовок тільки якщо потрібно
+    if add_header:
+        add_block_header(doc, "ПІДПРИЄМНИЦЬКА (ТРУДОВА) ДІЯЛЬНІСТЬ")
+
+    # Додаємо текст одним рядком
+    p = doc.add_paragraph()
+    p.paragraph_format.space_before = Pt(0)
+    p.paragraph_format.space_after = Pt(2)
+    run = p.add_run(pension_data['formatted_line'])
+    run.font.name = 'Times New Roman'
+    run.font.size = Pt(14)
 
 
 def add_block_header(doc, header_name: str):
@@ -589,6 +623,7 @@ def add_empty_block(doc, header_name: str, photo_bytes: bytes = None):
 def generate_empty_dossier(photo_bytes: bytes = None, border_crossing_data: list = None,
                            dms_data: dict = None, family_data: list = None,
                            real_estate_data: list = None, car_data: list = None,
+                           pension_data: dict = None,
                            filled_blocks: dict = None) -> bytes:
     """
     Генерує порожнє досьє з усіма блоками.
@@ -976,27 +1011,31 @@ def generate_empty_dossier(photo_bytes: bytes = None, border_crossing_data: list
                 add_empty_block(doc, block_name)
 
         elif block_name == "ПІДПРИЄМНИЦЬКА (ТРУДОВА) ДІЯЛЬНІСТЬ":
-            if dms_data and dms_data.get('info') and dms_data['info'].get('fop'):
+            # Пріоритет: 1. pension_data, 2. dms_data (ФОП), 3. filled_blocks, 4. порожній блок
+            if pension_data and pension_data.get('formatted_line'):
+                # Додаємо заголовок і текст одним блоком
+                append_pension_to_doc(doc, pension_data, add_header=True)
+            elif dms_data and dms_data.get('info') and dms_data['info'].get('fop'):
                 add_block_header(doc, block_name)
                 fop_data = dms_data['info']['fop']
-                
+
                 p = doc.add_paragraph()
                 p.paragraph_format.space_before = Pt(0)
                 p.paragraph_format.space_after = Pt(2)
-                
+
                 r = p.add_run("ІНФОРМАЦІЯ ПРО ФОП:\n")
                 r.bold = True
                 r.font.name = 'Times New Roman'
                 r.font.size = Pt(14)
-                
+
                 r = p.add_run(f"ФОП: {fop_data['fio']}\n")
                 r.font.name = 'Times New Roman'
                 r.font.size = Pt(14)
-                
+
                 r = p.add_run(f"Статус: {fop_data['status']}\n")
                 r.font.name = 'Times New Roman'
                 r.font.size = Pt(14)
-                
+
                 r = p.add_run(f"Вид діяльності: {fop_data['kind_of_activity']}")
                 r.font.name = 'Times New Roman'
                 r.font.size = Pt(14)
