@@ -821,17 +821,17 @@ def generate_empty_dossier(photo_bytes: bytes = None, border_crossing_data: list
 
                 for member in family_data:
                     relative_type = member.get('relative_type', 'Родич')
-                    
+
                     spacer = doc.add_paragraph()
                     spacer.paragraph_format.space_before = Mm(3)
                     spacer.paragraph_format.space_after = Mm(0)
                     spacer.paragraph_format.line_spacing = 0
-                    
+
                     if member.get('info'):
                         dms_info = member['info']
                         table = doc.add_table(rows=1, cols=2)
                         table.autofit = False
-                        
+
                         left_cell = table.rows[0].cells[0]
                         left_cell.width = Inches(1.8)
                         member_photo = member.get('photo_bytes')
@@ -844,64 +844,78 @@ def generate_empty_dossier(photo_bytes: bytes = None, border_crossing_data: list
                                 paragraph = left_cell.paragraphs[0]
                                 run = paragraph.add_run()
                                 run.add_picture(BytesIO(f.read()), width=Inches(1.6))
-                        
+
                         right_cell = table.rows[0].cells[1]
                         right_cell.width = Inches(4.7)
-                        
+
                         p = right_cell.paragraphs[0]
                         p.alignment = WD_ALIGN_PARAGRAPH.LEFT
-                        
+
                         r = p.add_run(f"[{relative_type}] ")
                         r.font.name = 'Times New Roman'
                         r.font.size = Pt(14)
                         r.bold = True
-                        
+
                         r = p.add_run(f"{dms_info.get('fio', '')}\n")
                         r.font.name = 'Times New Roman'
                         r.font.size = Pt(14)
                         r.bold = True
-                        
+
                         if dms_info.get('data'):
                             r = p.add_run(f"Дата народження: {dms_info['data']}\n")
                             r.font.name = 'Times New Roman'
                             r.font.size = Pt(14)
-                        
+
                         if dms_info.get('birthplace'):
                             r = p.add_run(f"Місце народження: {dms_info['birthplace']}\n")
                             r.font.name = 'Times New Roman'
                             r.font.size = Pt(14)
-                        
+
                         if dms_info.get('iphp'):
                             r = p.add_run(f"РНОКПП: {dms_info['iphp']}\n")
                             r.font.name = 'Times New Roman'
                             r.font.size = Pt(14)
-                        
+
                         if dms_info.get('uhzp'):
                             r = p.add_run(f"УНЗР: {dms_info['uhzp']}\n")
                             r.font.name = 'Times New Roman'
                             r.font.size = Pt(14)
-                        
-                        if dms_info.get('adress'):
-                            r = p.add_run(f"Адреса перебування: {dms_info['adress']}\n")
-                            r.font.name = 'Times New Roman'
-                            r.font.size = Pt(14)
-                        
+
                         if dms_info.get('tel'):
                             r = p.add_run(f"Телефон: {dms_info['tel']}")
                             r.font.name = 'Times New Roman'
                             r.font.size = Pt(14)
                             r.bold = True
-                        
+
+                        # Адреса перебування - окремим параграфом під таблицею
+                        if dms_info.get('adress'):
+                            p_addr = doc.add_paragraph()
+                            p_addr.paragraph_format.space_before = Pt(0)
+                            p_addr.paragraph_format.space_after = Pt(2)
+                            r_addr = p_addr.add_run(f"Адреса перебування: {dms_info['adress']}")
+                            r_addr.font.name = 'Times New Roman'
+                            r_addr.font.size = Pt(14)
+                            r_addr.font.italic = True
+                            r_addr.font.color.rgb = RGBColor(56, 86, 35)
+
+                        # Паспортні дані - окремим списком під адресою
                         if dms_info.get('documents'):
-                            p_extra = right_cell.add_paragraph()
+                            p_docs = doc.add_paragraph()
+                            p_docs.paragraph_format.space_before = Pt(0)
+                            p_docs.paragraph_format.space_after = Pt(2)
+                            r_docs = p_docs.add_run("ДОКУМЕНТИ:\n")
+                            r_docs.bold = True
+                            r_docs.font.name = 'Times New Roman'
+                            r_docs.font.size = Pt(14)
                             for doc_str in dms_info['documents']:
-                                r = p_extra.add_run(f"• {doc_str}\n")
-                                r.font.name = 'Times New Roman'
-                                r.font.size = Pt(14)
+                                r_doc = p_docs.add_run(f"• {doc_str}\n")
+                                r_doc.font.name = 'Times New Roman'
+                                r_doc.font.size = Pt(14)
+
                     elif member.get('manual_text'):
                         table = doc.add_table(rows=1, cols=2)
                         table.autofit = False
-                        
+
                         left_cell = table.rows[0].cells[0]
                         left_cell.width = Inches(1.8)
                         member_photo = member.get('photo_bytes')
@@ -914,18 +928,18 @@ def generate_empty_dossier(photo_bytes: bytes = None, border_crossing_data: list
                                 paragraph = left_cell.paragraphs[0]
                                 run = paragraph.add_run()
                                 run.add_picture(BytesIO(f.read()), width=Inches(1.6))
-                        
+
                         right_cell = table.rows[0].cells[1]
                         right_cell.width = Inches(4.7)
-                        
+
                         p = right_cell.paragraphs[0]
                         p.alignment = WD_ALIGN_PARAGRAPH.LEFT
-                        
+
                         r = p.add_run(f"[{relative_type}] ")
                         r.font.name = 'Times New Roman'
                         r.font.size = Pt(14)
                         r.bold = True
-                        
+
                         lines = member['manual_text'].split('\n')
                         for i, line in enumerate(lines):
                             if line.strip():

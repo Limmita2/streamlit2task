@@ -40,5 +40,11 @@
         "description": "Обробка файлів нерухомості у формат DOCX",
         "page_file": "pages/6_REAL_ESTATE.py",
         "icon": "🏢"
+    },
+    {
+        "name": "Pension Fund",
+        "description": "Перевірка страхувальника через FinAP (Пенсійний фонд)",
+        "page_file": "pages/7_PENSION_FUND.py",
+        "icon": "🏦"
     }
 ]
