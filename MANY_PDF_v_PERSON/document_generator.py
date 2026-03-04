@@ -5,12 +5,6 @@ from docx.enum.style import WD_STYLE_TYPE
 from docx.enum.text import WD_LINE_SPACING
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.units import inch
-from reportlab.pdfgen import canvas
-from reportlab.lib.utils import ImageReader
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
 from io import BytesIO
 from PIL import Image
 import io

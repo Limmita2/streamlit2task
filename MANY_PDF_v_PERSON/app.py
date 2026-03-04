@@ -7,8 +7,6 @@ import re
 from io import BytesIO
 from pdf_processor import process_pdfs_to_paragraphs
 from document_generator import generate_docx, generate_empty_dossier, EMPTY_DOSSIER_BLOCKS, BLOCK_MAPPING, get_filename_from_intro
-from docx_to_pdf_converter import convert_docx_to_pdf, get_pdf_filename_from_docx
-from direct_pdf_creator import create_pdf_directly, get_pdf_filename_from_intro
 from PIL import Image
 from streamlit_sortables import sort_items
 from streamlit_pdf_viewer import pdf_viewer
@@ -1310,83 +1308,6 @@ def main():
                         except Exception as e:
                             st.error(f"❌ Помилка: {e}")
 
-            with col2:
-                if st.button("📥 Завантажити PDF", type="secondary"):
-                    with st.spinner("Генерація PDF..."):
-                        try:
-                            photo_bytes = None
-                            if 'photo_data' in st.session_state:
-                                photo_bytes = base64.b64decode(st.session_state['photo_data'])
-                            elif os.path.exists('default_avatar.png'):
-                                with open('default_avatar.png', 'rb') as f:
-                                    photo_bytes = f.read()
-
-                            family_list = []
-                            if 'family_data' in st.session_state:
-                                for rel_type, rel_data_list in st.session_state['family_data'].items():
-                                    for rel_item in rel_data_list:
-                                        family_list.append({
-                                            'relative_type': rel_type,
-                                            'info': rel_item['info'],
-                                            'photo_bytes': rel_item['photo_bytes']
-                                        })
-                            if 'family_manual_data' in st.session_state:
-                                for rel_type, manual_list in st.session_state['family_manual_data'].items():
-                                    for manual_item in manual_list:
-                                        if manual_item.get('text') or manual_item.get('photo_bytes'):
-                                            family_list.append({
-                                                'relative_type': rel_type,
-                                                'manual_text': manual_item.get('text', ''),
-                                                'photo_bytes': manual_item.get('photo_bytes')
-                                            })
-
-                            filled_blocks = {}
-                            if ordered_content:
-                                for item in ordered_content:
-                                    header = item.get('header', '').strip()
-                                    content = item.get('content', '')
-                                    if header in BLOCK_MAPPING:
-                                        mapped_header = BLOCK_MAPPING[header]
-                                        if mapped_header in filled_blocks:
-                                            filled_blocks[mapped_header] += "\n" + content
-                                        else:
-                                            filled_blocks[mapped_header] = content
-
-                            if st.session_state.get('empty_dossier_mode') or not ordered_content:
-                                docx_data = generate_empty_dossier(
-                                    photo_bytes=photo_bytes,
-                                    border_crossing_data=st.session_state.get('border_crossing_data'),
-                                    dms_data=st.session_state.get('dms_data'),
-                                    family_data=family_list,
-                                    real_estate_data=st.session_state.get('real_estate_data'),
-                                    car_data=st.session_state.get('combined_car_data'),
-                                    pension_data=st.session_state.get('pension_data'),
-                                    filled_blocks=filled_blocks
-                                )
-                                pdf_filename = "Dossier.pdf"
-                            else:
-                                docx_data = generate_docx(
-                                    {"Контент": ordered_content},
-                                    photo_bytes=photo_bytes,
-                                    border_crossing_data=st.session_state.get('border_crossing_data'),
-                                    dms_data=st.session_state.get('dms_data'),
-                                    family_data=family_list,
-                                    real_estate_data=st.session_state.get('real_estate_data'),
-                                    car_data=st.session_state.get('combined_car_data'),
-                                    pension_data=st.session_state.get('pension_data')
-                                )
-                                pdf_filename = get_pdf_filename_from_intro({"Контент": ordered_content})
-
-                            pdf_data = convert_docx_to_pdf(docx_data)
-
-                            st.download_button(
-                                label="💾 Зберегти PDF",
-                                data=pdf_data,
-                                file_name=pdf_filename,
-                                mime="application/pdf"
-                            )
-                        except Exception as e:
-                            st.error(f"❌ Помилка при створенні PDF: {e}")
 
             # Кнопка для повного очищення
             st.markdown("---")
