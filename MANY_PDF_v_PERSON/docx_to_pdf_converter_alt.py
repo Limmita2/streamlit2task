@@ -168,36 +168,45 @@ def convert_docx_to_pdf(docx_bytes: bytes) -> bytes:
             elements.append(Spacer(1, 8))  # 8pt высота строки
 
     # Обрабатываем таблицы
-    for table in doc.tables:
+    for table_idx, table in enumerate(doc.tables):
         # Преобразуем таблицу в формат reportlab
         data = []
-        for row in table.rows:
+        for row_idx, row in enumerate(table.rows):
             row_data = []
-            for cell in row.cells:
+            for cell_idx, cell in enumerate(row.cells):
                 cell_text = cell.text
                 # Проверяем, есть ли в ячейке синий фон
-                if cell._tc.pr.shd and cell._tc.pr.shd.val:
-                    bg_color = cell._tc.pr.shd.val
-                    # Если цвет близок к #9BC2E6, применяем стиль заголовка
-                    if '#9BC2E6' in str(bg_color) or '9BC2E6' in str(bg_color):
-                        # Создаем параграф с синим фоном
-                        style = ParagraphStyle(
-                            'BlueCell',
-                            parent=styles['Normal'],
-                            fontName=bold_font,
-                            fontSize=14,
-                            alignment=TA_LEFT,
-                            textColor=colors.white,
-                            backColor=colors.HexColor('#9BC2E6'),
-                            leftIndent=28,  # 7 пробелов (~7*4pt)
-                            spaceAfter=0,
-                            spaceBefore=0,
-                            leading=16.1
-                        )
-                        row_data.append(Paragraph(cell_text, style))
+                try:
+                    if cell._tc.pr and cell._tc.pr.shd and cell._tc.pr.shd.val:
+                        bg_color = cell._tc.pr.shd.val
+                        # Если цвет близок к #9BC2E6, применяем стиль заголовка
+                        if '#9BC2E6' in str(bg_color) or '9BC2E6' in str(bg_color):
+                            # Создаем параграф с синим фоном
+                            style = ParagraphStyle(
+                                'BlueCell',
+                                parent=styles['Normal'],
+                                fontName=bold_font,
+                                fontSize=14,
+                                alignment=TA_LEFT,
+                                textColor=colors.white,
+                                backColor=colors.HexColor('#9BC2E6'),
+                                leftIndent=28,  # 7 пробелов (~7*4pt)
+                                spaceAfter=0,
+                                spaceBefore=0,
+                                leading=16.1
+                            )
+                            row_data.append(Paragraph(cell_text, style))
+                        else:
+                            row_data.append(cell_text)
                     else:
                         row_data.append(cell_text)
-                else:
+                except AttributeError as e:
+                    # Логируем ошибку для диагностики
+                    print(f"DEBUG: Ошибка в таблице {table_idx}, строка {row_idx}, ячейка {cell_idx}: {e}")
+                    print(f"DEBUG: cell._tc имеет атрибут pr: {hasattr(cell._tc, 'pr')}")
+                    if hasattr(cell._tc, 'pr') and cell._tc.pr is not None:
+                        print(f"DEBUG: cell._tc.pr имеет атрибут shd: {hasattr(cell._tc.pr, 'shd')}")
+                    # Добавляем текст ячейки без форматирования
                     row_data.append(cell_text)
             data.append(row_data)
 
