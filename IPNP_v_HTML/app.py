@@ -114,7 +114,7 @@ def generate_map_html(df: pd.DataFrame, logo_base64: str = None):
 
     df['date_str'] = df['date'].astype(str)
     df = df.sort_values(by=['date_str', 'datetime']).reset_index(drop=True)
-    dates_list = sorted(df['date_str'].unique())
+    dates_list = sorted(df['date_str'].dropna().astype(str).unique())
 
     # Центр карты
     valid_points = df[df['is_valid_coord']]
