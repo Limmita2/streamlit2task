@@ -321,7 +321,8 @@ def generate_docx(data: dict, photo_bytes: bytes = None, border_crossing_data: l
             p_h = cell.paragraphs[0]
             p_h.alignment = WD_ALIGN_PARAGRAPH.LEFT
             # Додаємо 7 пробілів перед заголовком та робимо текст великими літерами
-            run_h = p_h.add_run("       " + header.upper())
+            display_header = "АДРЕСИ" if header == "Адреса" else header.upper()
+            run_h = p_h.add_run("       " + display_header)
             run_h.bold = True
             run_h.italic = True
             run_h.font.size = Pt(14)
@@ -337,6 +338,26 @@ def generate_docx(data: dict, photo_bytes: bytes = None, border_crossing_data: l
                            r'(місце\s*проживання\s*:|' + BOLD_PATTERN[1:] if header == "Адреса" else BOLD_PATTERN)
                     p_c = add_bulleted_content(doc, p_text.strip(), alignment=WD_ALIGN_PARAGRAPH.JUSTIFY, pattern=pat)
 
+            # Після блоку Адреса додаємо блоки ДМС (АДРЕСИ ДМС + ДОКУМЕНТИ)
+            if header == "Адреса":
+                if dms_data and dms_data.get('info') and dms_data['info'].get('adress'):
+                    add_block_header(doc, "АДРЕСА ДМС")
+                    p = doc.add_paragraph()
+                    p.paragraph_format.space_before = Pt(0)
+                    p.paragraph_format.space_after = Pt(2)
+                    run = p.add_run(f"Адреса перебування: {dms_data['info']['adress']}")
+                    run.font.name = 'Times New Roman'
+                    run.font.size = Pt(14)
+
+                if dms_data and dms_data.get('info') and dms_data['info'].get('documents'):
+                    add_block_header(doc, "ДОКУМЕНТИ")
+                    for doc_str in dms_data['info']['documents']:
+                        p = doc.add_paragraph()
+                        p.paragraph_format.space_before = Pt(0)
+                        p.paragraph_format.space_after = Pt(2)
+                        run = p.add_run(f"• {doc_str}")
+                        run.font.name = 'Times New Roman'
+                        run.font.size = Pt(14)
 
     # Знаходимо абзац з текстом "АНКЕТНІ ДАНІ:" і змінюємо формат порожніх абзаців перед і після нього
     paragraphs = doc.paragraphs
